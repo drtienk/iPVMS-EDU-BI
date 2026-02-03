@@ -1,0 +1,207 @@
+:root {
+  --primary: #1976d2;
+  --success: #4caf50;
+  --danger: #f44336;
+  --warning: #ff9800;
+  --bg: #f5f5f5;
+  --border: #e0e0e0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  margin: 0;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 24px;
+  background: white;
+  border-bottom: 1px solid var(--border);
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--primary);
+}
+
+.header-title {
+  color: inherit;
+  text-decoration: none;
+}
+
+.header-period {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.period-select {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+  padding: 12px 24px;
+  background: white;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.breadcrumb a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.breadcrumb-sep {
+  color: #666;
+}
+
+.breadcrumb-current {
+  color: #333;
+}
+
+/* Table */
+.table-container {
+  padding: 24px;
+}
+
+.search-input {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  width: 300px;
+  margin-bottom: 16px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.table th {
+  background: var(--primary);
+  color: white;
+  padding: 12px 16px;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+}
+
+.table th:hover {
+  background: #1565c0;
+}
+
+.table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.table tbody tr:hover {
+  background: #e3f2fd;
+}
+
+.table tr.clickable:hover {
+  cursor: pointer;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Profit colors */
+.profit-positive {
+  color: var(--success);
+  font-weight: 500;
+}
+
+.profit-negative {
+  color: var(--danger);
+  font-weight: 500;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.pagination button {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Buttons */
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #1565c0;
+}
+
+/* Sheet Status */
+.sheet-status {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.sheet-status.ok {
+  background: #e8f5e9;
+  color: var(--success);
+}
+
+.sheet-status.error {
+  background: #ffebee;
+  color: var(--danger);
+}
+
+/* Page actions */
+.page-actions {
+  padding: 16px 24px;
+  background: white;
+  border-bottom: 1px solid var(--border);
+}
