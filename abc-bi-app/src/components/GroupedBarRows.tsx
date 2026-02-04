@@ -28,6 +28,8 @@ export interface GroupedBarRowsProps {
   labelWidth?: number;
   /** When provided, show header row with month labels and column totals; reserve right column for row total */
   monthTotals?: MonthTotal[];
+  /** When provided, each bar is clickable and invokes this with group label, period (x), and value (y) */
+  onBarClick?: (args: { groupLabel: string; period: number; value: number }) => void;
 }
 
 const DEFAULT_WIDTH = 520;
@@ -56,6 +58,7 @@ export function GroupedBarRows({
   width = DEFAULT_WIDTH,
   labelWidth = LABEL_WIDTH,
   monthTotals = [],
+  onBarClick,
 }: GroupedBarRowsProps) {
   if (rows.length === 0) {
     return (
@@ -186,6 +189,17 @@ export function GroupedBarRows({
                       height={h}
                       fill={fill}
                       className="grouped-bar-rect"
+                      style={{ cursor: onBarClick ? 'pointer' : undefined }}
+                      onClick={(e) => {
+                        if (onBarClick) {
+                          e.stopPropagation();
+                          onBarClick({
+                            groupLabel: row.group,
+                            period: Number(v.x),
+                            value: yVal,
+                          });
+                        }
+                      }}
                     />
                     <text
                       x={barCenterX}

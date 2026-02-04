@@ -142,4 +142,38 @@
 
 ---
 
+## Drill-down 2 – By Product within Sales Activity Center (2026-02-04)
+
+### Trigger
+
+- User clicks a **bar** in the **By Sales Activity Center** view (one of the 3 month bars in a row). That opens **Drill-down 2**, which shows a **By Product** breakdown for that Sales Activity Center over the **same period range** (e.g. 202401–202403).
+
+### State (`Page0.tsx`)
+
+- **`drilldown2: Drilldown2State`** (null or object):
+  - `salesActivityCenterKey: string` – row label of the clicked Sales Activity Center (e.g. `"A01"` or `"(Unknown)"`).
+  - `clickedPeriodNo: number` – the period (month) of the clicked bar.
+  - `periods: number[]` – current `selectedPeriods` (up to 3 months), kept so Drill-down 2 uses the same range.
+- When the main drilldown is closed (`selectedPeriodNo` set to null), `drilldown2` is reset to null.
+
+### Data dependency (tables/fields)
+
+- **Table**: `CustomerProductProfit` (`getTable(periodNo, 'CustomerProductProfit')`).
+- **Linkage**: Rows have **`SalesActivityCenter`** and **`Product`**; profitability per product per customer (per period) is **`NetIncome`** (`CustomerProductProfitRow.NetIncome`). No separate customer→center table is needed: filter by `SalesActivityCenter` and aggregate by `Product`.
+- **Computation**: For each period in `drilldown2.periods`, load `CustomerProductProfit`, keep only rows where normalized `SalesActivityCenter` equals `drilldown2.salesActivityCenterKey`, then aggregate **sum(NetIncome)** by **Product**. Merge into grouped rows (same pattern as main “By Product”): Top 10 products by sum of |value| across periods, plus “Others”, with row total.
+
+### Fallback behavior
+
+- If after filtering by Sales Activity Center there are **no products** (empty result): show message: *"By Product drill-down requires customer-product-profit data linked to Sales Activity Center (not available in current dataset)."*
+- Same message is shown on load error (e.g. table missing or failed request).
+
+### UI
+
+- **Drill-down 2** appears as a **nested panel** below the main drilldown tabs (border, padding), without closing the main drilldown.
+- Title: **"Drill-down 2: {SalesActivityCenter} → By Product"**; period range and clicked month (e.g. “clicked month: 012024”).
+- **Close Drill-down 2** button clears `drilldown2` and hides the panel.
+- Content: same **GroupedBarRows** style as main “By Product” (product rows, 3 bars, value above bar, month under bar, row total on the right; green/red for profit).
+
+---
+
 *文件結束*
