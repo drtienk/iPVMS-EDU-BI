@@ -135,6 +135,7 @@ export function Page0() {
   const [productDataAvailable, setProductDataAvailable] = useState(false);
   const [groupedProductRows, setGroupedProductRows] = useState<GroupedBarRow[]>([]);
   const [groupedSalesActivityCenterRows, setGroupedSalesActivityCenterRows] = useState<GroupedBarRow[]>([]);
+  const [salesActivityCenterMonthTotals, setSalesActivityCenterMonthTotals] = useState<{ period: number; total: number }[]>([]);
   const [salesActivityCenterDataAvailable, setSalesActivityCenterDataAvailable] = useState(false);
   const [loadingDrilldown, setLoadingDrilldown] = useState(false);
   const [errorDrilldown, setErrorDrilldown] = useState<string | null>(null);
@@ -170,6 +171,7 @@ export function Page0() {
       setProductRows([]);
       setProductDataAvailable(false);
       setGroupedSalesActivityCenterRows([]);
+      setSalesActivityCenterMonthTotals([]);
       setSalesActivityCenterDataAvailable(false);
       setErrorDrilldown(null);
       return;
@@ -346,10 +348,21 @@ export function Page0() {
             total: othersTotal,
           });
         }
+        const monthTotals = selectedPeriods.map((period) => ({
+          period,
+          total: rows.reduce(
+            (s, row) => s + (row.values.find((v) => v.x === period)?.y ?? 0),
+            0
+          ),
+        }));
         setGroupedSalesActivityCenterRows(rows);
+        setSalesActivityCenterMonthTotals(monthTotals);
       })
       .catch(() => {
-        if (!cancelled) setGroupedSalesActivityCenterRows([]);
+        if (!cancelled) {
+          setGroupedSalesActivityCenterRows([]);
+          setSalesActivityCenterMonthTotals([]);
+        }
       });
     return () => {
       cancelled = true;
@@ -650,6 +663,7 @@ export function Page0() {
                   barLabelFormatter={(y) => y.toLocaleString('en-US')}
                   width={560}
                   labelWidth={140}
+                  monthTotals={salesActivityCenterMonthTotals}
                 />
               ) : salesActivityCenterDataAvailable ? (
                 <p className="trend-panel-message">No Sales Activity Center data for selected period(s).</p>
