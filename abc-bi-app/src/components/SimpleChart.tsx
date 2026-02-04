@@ -15,6 +15,8 @@ export interface SimpleChartProps {
   yLabel?: string;
   formatX?: (x: number) => string;
   formatY?: (y: number) => string;
+  /** When set, bar chart rects are clickable and show pointer cursor. */
+  onBarClick?: (datum: SimpleChartDatum) => void;
 }
 
 const DEFAULT_WIDTH = 400;
@@ -30,6 +32,7 @@ export function SimpleChart({
   yLabel,
   formatX = (x) => String(x),
   formatY = (y) => String(y),
+  onBarClick,
 }: SimpleChartProps) {
   if (data.length === 0) {
     return (
@@ -114,6 +117,8 @@ export function SimpleChart({
                 width={barWidth}
                 height={h}
                 fill={d.y >= 0 ? '#1976d2' : '#e57373'}
+                style={onBarClick ? { cursor: 'pointer' } : undefined}
+                onClick={() => onBarClick?.(d)}
               />
             );
           })}

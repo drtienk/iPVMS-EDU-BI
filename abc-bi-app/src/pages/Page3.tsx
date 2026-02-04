@@ -55,7 +55,7 @@ export function Page3() {
   ];
 
   const handleRowClick = (row: ActivityDriverRow) => {
-    const activityCodeKey = extractCode(row[' Activity - Level 2'] ?? row['Activity - Level 2']);
+    const activityCodeKey = extractCode(row[' Activity - Level 2']);
     navigate(
       `/page4?periodNo=${periodNo}&customerId=${customerId}&activityCenterKey=${encodeURIComponent(activityCenterKey)}&activityCodeKey=${encodeURIComponent(activityCodeKey)}`
     );

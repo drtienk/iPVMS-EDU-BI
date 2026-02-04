@@ -129,7 +129,7 @@ function addNormalizedFields<T extends Record<string, unknown>>(
   } as T & Record<string, unknown>;
 }
 
-function normalizeAmounts(row: Record<string, unknown>, tableName: TableName): Record<string, unknown> {
+function normalizeAmounts(row: Record<string, unknown>, _tableName: TableName): Record<string, unknown> {
   const out = { ...row };
   const amountKeys = ['Amount', 'ActCost', 'StdCost', 'Price', 'ServiceCost', 'CustomerProfit', 'NetProfit', 'TotalCost', 'ManagementCost', 'ManufactureCost', 'SalesProfit', 'GrossMargin', 'ProjectCost', 'NetIncome', 'ProductCost', 'ServiceAmount', 'VC_ServiceCost', 'CustomersProfit', 'ProductProfit', 'ResourceDriverValue', 'ActvivtyDriverValue', 'ActivityCenterDriverRate', 'ActivityCenterDriverValue', 'DriverValue', 'Ratio', 'ServiceDriverValue', 'CustomerProfitRatio', 'ProductProfitRatio', 'Quantity', 'SalesVolume', 'UnitPrice', 'ProductUnitCost', 'ProductProfit'];
   for (const key of amountKeys) {

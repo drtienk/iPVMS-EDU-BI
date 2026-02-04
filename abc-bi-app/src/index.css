@@ -325,3 +325,89 @@ body {
   background: white;
   border-bottom: 1px solid var(--border);
 }
+
+/* Drilldown Panel (Page0) */
+.drilldown-panel {
+  margin-top: 16px;
+}
+
+.drilldown-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.drilldown-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.drilldown-close {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.drilldown-close:hover {
+  background: #f5f5f5;
+}
+
+.drilldown-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.drilldown-tab {
+  padding: 8px 14px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #555;
+}
+
+.drilldown-tab:hover:not(.disabled) {
+  background: #f5f5f5;
+}
+
+.drilldown-tab.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.drilldown-tab.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.drilldown-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #333;
+}
+
+.top-n-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.top-n-row .top-n-select {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 14px;
+}
