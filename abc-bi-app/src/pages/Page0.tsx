@@ -6,32 +6,48 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { SimpleChart } from '../components/SimpleChart';
 import { getTableData, listPeriods, getTable } from '../dataApi';
 import { formatCurrency, formatPercent } from '../utils/format';
-import type { CustomerProfitResultRow } from '../types';
+import { toNumber } from '../normalize';
+import type { CustomerProfitResultRow, IncomeStatmentRow } from '../types';
 import type { ColumnDef } from '@tanstack/react-table';
 
-export type TrendMetric = 'customerCount' | 'totalCustomerProfit' | 'totalServiceCost' | 'avgProfitRatio';
-
-export interface PeriodAggregate {
+export interface DashboardAggregate {
   periodNo: number;
-  customerCount: number;
-  totalCustomerProfit: number;
+  totalProfitability: number;
+  totalRevenue: number;
   totalServiceCost: number;
-  avgProfitRatio: number;
+  customerCount: number;
 }
 
-function computePeriodAggregate(periodNo: number, rows: CustomerProfitResultRow[]): PeriodAggregate {
-  const customerIds = new Set(rows.map((r) => String(r.customerId ?? '')).filter(Boolean));
-  const totalCustomerProfit = rows.reduce((s, r) => s + (Number(r.CustomerProfit) || 0), 0);
-  const totalServiceCost = rows.reduce((s, r) => s + (Number(r.ServiceCost) ?? 0), 0);
-  const ratios = rows.map((r) => r.CustomerProfitRatio).filter((v): v is number => v != null && !Number.isNaN(v));
-  const avgProfitRatio = ratios.length ? ratios.reduce((a, b) => a + b, 0) / ratios.length : 0;
-  return {
-    periodNo,
-    customerCount: customerIds.size,
-    totalCustomerProfit,
-    totalServiceCost,
-    avgProfitRatio,
-  };
+async function computeDashboardAggregate(periodNo: number): Promise<DashboardAggregate | null> {
+  try {
+    const rows = await getTable<CustomerProfitResultRow>(periodNo, 'CustomerProfitResult');
+    if (rows.length === 0) return null;
+
+    const customerIds = new Set(rows.map((r) => String(r.customerId ?? '')).filter(Boolean));
+    const totalProfitability = rows.reduce((s, r) => s + toNumber(r.CustomerProfit, 0), 0);
+    const totalRevenueFromPrice = rows.reduce((s, r) => s + toNumber(r.Price, 0), 0);
+    const totalServiceCost = rows.reduce((s, r) => s + toNumber(r.ServiceCost, 0), 0);
+
+    let totalRevenue = totalRevenueFromPrice;
+    if (totalRevenue === 0) {
+      try {
+        const incomeRows = await getTable<IncomeStatmentRow>(periodNo, 'IncomeStatment');
+        totalRevenue = incomeRows.reduce((s, r) => s + toNumber(r.Amount, 0), 0);
+      } catch {
+        // keep 0
+      }
+    }
+
+    return {
+      periodNo,
+      totalProfitability,
+      totalRevenue,
+      totalServiceCost,
+      customerCount: customerIds.size,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function Page0() {
@@ -41,10 +57,9 @@ export function Page0() {
   const periodNoStr = searchParams.get('periodNo');
   const periodNo = periodNoStr ? Number(periodNoStr) : NaN;
   const [data, setData] = useState<CustomerProfitResultRow[]>([]);
-  const [periodAggregates, setPeriodAggregates] = useState<PeriodAggregate[]>([]);
-  const [trendLoading, setTrendLoading] = useState(true);
-  const [trendError, setTrendError] = useState<string | null>(null);
-  const [selectedMetric, setSelectedMetric] = useState<TrendMetric>('customerCount');
+  const [aggregates, setAggregates] = useState<DashboardAggregate[]>([]);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isNaN(periodNo)) {
@@ -55,25 +70,19 @@ export function Page0() {
   }, [periodNo, refreshToken]);
 
   useEffect(() => {
-    setTrendLoading(true);
-    setTrendError(null);
+    setDashboardLoading(true);
+    setDashboardError(null);
     listPeriods()
       .then(async (periodNos) => {
-        const aggregates: PeriodAggregate[] = [];
+        const result: DashboardAggregate[] = [];
         for (const no of periodNos) {
-          try {
-            const rows = await getTable<CustomerProfitResultRow>(no, 'CustomerProfitResult');
-            if (rows.length > 0) {
-              aggregates.push(computePeriodAggregate(no, rows));
-            }
-          } catch {
-            // Skip period if table missing or invalid
-          }
+          const agg = await computeDashboardAggregate(no);
+          if (agg != null) result.push(agg);
         }
-        setPeriodAggregates(aggregates);
+        setAggregates(result);
       })
-      .catch(() => setTrendError('No data'))
-      .finally(() => setTrendLoading(false));
+      .catch(() => setDashboardError('No data'))
+      .finally(() => setDashboardLoading(false));
   }, [refreshToken]);
 
   const columns: ColumnDef<CustomerProfitResultRow, unknown>[] = [
@@ -118,67 +127,73 @@ export function Page0() {
 
   const breadcrumb = [{ label: '顧客總覽', path: `/page0?periodNo=${periodNo}` }];
 
-  const chartData = periodAggregates.map((a) => ({
-    x: a.periodNo,
-    y:
-      selectedMetric === 'customerCount'
-        ? a.customerCount
-        : selectedMetric === 'totalCustomerProfit'
-          ? a.totalCustomerProfit
-          : selectedMetric === 'totalServiceCost'
-            ? a.totalServiceCost
-            : a.avgProfitRatio,
-  }));
-
-  const isLine = selectedMetric === 'customerCount' || selectedMetric === 'avgProfitRatio';
-  const metricLabels: Record<TrendMetric, string> = {
-    customerCount: 'Customer Count',
-    totalCustomerProfit: 'Total Customer Profit',
-    totalServiceCost: 'Total Service Cost',
-    avgProfitRatio: 'Average Profit Ratio',
-  };
-  const formatY =
-    selectedMetric === 'avgProfitRatio'
-      ? (y: number) => (y * 100).toFixed(1) + '%'
-      : selectedMetric === 'customerCount'
-        ? (y: number) => String(Math.round(y))
-        : (y: number) => formatCurrency(y);
+  const chartFormatCurrency = (y: number) => formatCurrency(y);
+  const chartFormatCount = (y: number) => String(Math.round(y));
 
   return (
     <>
-      <section className="trend-panel">
-        <h2 className="trend-panel-title">Customer Overview Trend</h2>
-        {trendLoading && <p className="trend-panel-message">Loading…</p>}
-        {!trendLoading && trendError && <p className="trend-panel-message">No data</p>}
-        {!trendLoading && !trendError && periodAggregates.length < 2 && (
+      <section className="trend-panel dashboard-section">
+        <h2 className="trend-panel-title">Customer Overview Dashboard</h2>
+        {dashboardLoading && <p className="trend-panel-message">Loading…</p>}
+        {!dashboardLoading && dashboardError && <p className="trend-panel-message">No data</p>}
+        {!dashboardLoading && !dashboardError && aggregates.length < 2 && (
           <p className="trend-panel-message">Upload 2+ periods to see trends.</p>
         )}
-        {!trendLoading && !trendError && periodAggregates.length >= 2 && (
-          <>
-            <div className="trend-panel-controls">
-              <label>
-                Metric:{' '}
-                <select
-                  value={selectedMetric}
-                  onChange={(e) => setSelectedMetric(e.target.value as TrendMetric)}
-                  className="trend-metric-select"
-                >
-                  <option value="customerCount">Customer Count (line)</option>
-                  <option value="totalCustomerProfit">Total Customer Profit (bar)</option>
-                  <option value="totalServiceCost">Total Service Cost (bar)</option>
-                  <option value="avgProfitRatio">Average Profit Ratio (line)</option>
-                </select>
-              </label>
+        {!dashboardLoading && !dashboardError && aggregates.length >= 2 && (
+          <div className="dashboard-grid">
+            <div className="dashboard-chart">
+              <h3 className="dashboard-chart-title">Total profitability</h3>
+              <SimpleChart
+                data={aggregates.map((a) => ({ x: a.periodNo, y: a.totalProfitability }))}
+                type="bar"
+                xLabel="Period"
+                yLabel="Value"
+                formatX={(x) => String(x)}
+                formatY={chartFormatCurrency}
+                width={340}
+                height={200}
+              />
             </div>
-            <SimpleChart
-              data={chartData}
-              type={isLine ? 'line' : 'bar'}
-              xLabel="Period"
-              yLabel={metricLabels[selectedMetric]}
-              formatX={(x) => String(x)}
-              formatY={formatY}
-            />
-          </>
+            <div className="dashboard-chart">
+              <h3 className="dashboard-chart-title">Total revenue</h3>
+              <SimpleChart
+                data={aggregates.map((a) => ({ x: a.periodNo, y: a.totalRevenue }))}
+                type="bar"
+                xLabel="Period"
+                yLabel="Value"
+                formatX={(x) => String(x)}
+                formatY={chartFormatCurrency}
+                width={340}
+                height={200}
+              />
+            </div>
+            <div className="dashboard-chart">
+              <h3 className="dashboard-chart-title">Total service cost</h3>
+              <SimpleChart
+                data={aggregates.map((a) => ({ x: a.periodNo, y: a.totalServiceCost }))}
+                type="bar"
+                xLabel="Period"
+                yLabel="Value"
+                formatX={(x) => String(x)}
+                formatY={chartFormatCurrency}
+                width={340}
+                height={200}
+              />
+            </div>
+            <div className="dashboard-chart">
+              <h3 className="dashboard-chart-title">Total customer count</h3>
+              <SimpleChart
+                data={aggregates.map((a) => ({ x: a.periodNo, y: a.customerCount }))}
+                type="line"
+                xLabel="Period"
+                yLabel="Count"
+                formatX={(x) => String(x)}
+                formatY={chartFormatCount}
+                width={340}
+                height={200}
+              />
+            </div>
+          </div>
         )}
       </section>
       <Breadcrumb items={breadcrumb} />
