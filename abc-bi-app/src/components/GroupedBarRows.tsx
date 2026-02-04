@@ -6,6 +6,8 @@
 export interface GroupedBarRow {
   group: string;
   values: { x: number | string; y: number }[];
+  /** Optional sum of values for this group (e.g. total profitability). Shown above bars when set. */
+  total?: number;
 }
 
 export interface GroupedBarRowsProps {
@@ -24,6 +26,7 @@ export interface GroupedBarRowsProps {
 const DEFAULT_WIDTH = 520;
 const LABEL_WIDTH = 140;
 const ROW_HEIGHT = 52;
+const ROW_HEIGHT_WITH_TOTAL = 70;
 const BAR_CHART_HEIGHT = 28;
 const BASELINE = 14;
 const MIN_BAR_HEIGHT_FOR_LABEL = 10;
@@ -67,15 +70,36 @@ export function GroupedBarRows({
 
   const barY0 = scaleY(0);
 
+  const formatTotal = (t: number) =>
+    t.toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 0 });
+
   return (
     <div className="grouped-bar-rows" style={{ width }}>
-      {rows.map((row, rowIdx) => (
-        <div key={rowIdx} className="grouped-bar-row" style={{ height: ROW_HEIGHT }}>
+      {rows.map((row, rowIdx) => {
+        const showTotal = row.total !== undefined && row.total !== null;
+        const rowH = showTotal ? ROW_HEIGHT_WITH_TOTAL : ROW_HEIGHT;
+        const totalColor = showTotal && row.total! < 0 ? '#C62828' : '#2E7D32';
+        return (
+        <div key={rowIdx} className="grouped-bar-row" style={{ height: rowH }}>
           <div className="grouped-bar-row-label" style={{ width: labelWidth }}>
             {row.group}
           </div>
+          <div className="grouped-bar-row-chart" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {showTotal && (
+              <div
+                className="grouped-bar-row-total"
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: totalColor,
+                  textAlign: 'right',
+                  paddingRight: 4,
+                }}
+              >
+                Total: {formatTotal(row.total!)}
+              </div>
+            )}
           <svg
-            className="grouped-bar-row-chart"
             width={barAreaWidth}
             height={ROW_HEIGHT}
             style={{ overflow: 'visible' }}
@@ -125,8 +149,10 @@ export function GroupedBarRows({
               );
             })}
           </svg>
+          </div>
         </div>
-      ))}
+      );
+      })}
     </div>
   );
 }

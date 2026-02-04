@@ -303,7 +303,7 @@ export function Page0() {
           const map = new Map<string, number>();
           for (const r of rows) {
             const name = String(r.SalesActivityCenter ?? '').trim() || '(Unknown)';
-            const profit = toNumber(r.NetProfit, 0);
+            const profit = toNumber(r.NetIncome, 0);
             map.set(name, (map.get(name) ?? 0) + profit);
             allCenters.add(name);
           }
@@ -320,24 +320,30 @@ export function Page0() {
         const topNames = new Set(centerTotals.slice(0, DRILLDOWN_TOP_SALES_ACTIVITY_CENTERS).map((x) => x.name));
         const rows: GroupedBarRow[] = [];
         for (const { name } of centerTotals.slice(0, DRILLDOWN_TOP_SALES_ACTIVITY_CENTERS)) {
+          const values = selectedPeriods.map((p) => ({
+            x: p,
+            y: byPeriod.get(p)?.get(name) ?? 0,
+          }));
+          const total = values.reduce((s, v) => s + v.y, 0);
           rows.push({
             group: name,
-            values: selectedPeriods.map((p) => ({
-              x: p,
-              y: byPeriod.get(p)?.get(name) ?? 0,
-            })),
+            values,
+            total,
           });
         }
         const othersSum = centerTotals.slice(DRILLDOWN_TOP_SALES_ACTIVITY_CENTERS).reduce((s, x) => s + x.sum, 0);
         if (othersSum > 0 || centerTotals.length > DRILLDOWN_TOP_SALES_ACTIVITY_CENTERS) {
+          const othersValues = selectedPeriods.map((p) => ({
+            x: p,
+            y: Array.from(allCenters)
+              .filter((n) => !topNames.has(n))
+              .reduce((s, n) => s + (byPeriod.get(p)?.get(n) ?? 0), 0),
+          }));
+          const othersTotal = othersValues.reduce((s, v) => s + v.y, 0);
           rows.push({
             group: 'Others',
-            values: selectedPeriods.map((p) => ({
-              x: p,
-              y: Array.from(allCenters)
-                .filter((n) => !topNames.has(n))
-                .reduce((s, n) => s + (byPeriod.get(p)?.get(n) ?? 0), 0),
-            })),
+            values: othersValues,
+            total: othersTotal,
           });
         }
         setGroupedSalesActivityCenterRows(rows);
