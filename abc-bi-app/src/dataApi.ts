@@ -19,7 +19,21 @@ export async function getAllPeriods(): Promise<PeriodInfo[]> {
   return list.sort((a, b) => b.periodNo - a.periodNo);
 }
 
+/** List all period numbers (sorted ascending) for trend / multi-period views. */
+export async function listPeriods(): Promise<number[]> {
+  const list = await getAllPeriods();
+  return list.map((p) => p.periodNo).sort((a, b) => a - b);
+}
+
 export async function getTableData<T = unknown>(periodNo: number, tableName: TableName): Promise<T[]> {
+  const db = await getDb();
+  const key = `${periodNo}:${tableName}`;
+  const data = await db.get('tables', key);
+  return (data ?? []) as T[];
+}
+
+/** Read table rows by period and table name (key: `${periodNo}:${tableName}`). */
+export async function getTable<T = unknown>(periodNo: number, tableName: string): Promise<T[]> {
   const db = await getDb();
   const key = `${periodNo}:${tableName}`;
   const data = await db.get('tables', key);

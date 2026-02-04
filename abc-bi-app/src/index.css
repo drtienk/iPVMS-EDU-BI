@@ -99,6 +99,50 @@ body {
   color: #333;
 }
 
+/* Trend panel (Page0) */
+.trend-panel {
+  padding: 16px 24px;
+  margin: 0 24px 16px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.trend-panel-title {
+  margin: 0 0 12px;
+  font-size: 16px;
+  color: #333;
+}
+
+.trend-panel-message {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.trend-panel-controls {
+  margin-bottom: 12px;
+}
+
+.trend-metric-select {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.simple-chart {
+  margin-top: 8px;
+}
+
+.simple-chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  font-size: 14px;
+}
+
 /* Table */
 .table-container {
   padding: 24px;
