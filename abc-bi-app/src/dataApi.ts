@@ -1,4 +1,4 @@
-import { getDb } from './db';
+import { getDb, deletePeriod as deletePeriodFromDb } from './db';
 import type { PeriodInfo } from './types';
 import type { TableName } from './types';
 
@@ -42,4 +42,8 @@ export async function saveUpload(periodNo: number, sheetStatus: Record<string, b
     const rows = normalizedData[tableName] ?? [];
     await db.put('tables', rows, `${periodNo}:${tableName}`);
   }
+}
+
+export async function deletePeriod(periodNo: number): Promise<void> {
+  return deletePeriodFromDb(periodNo);
 }

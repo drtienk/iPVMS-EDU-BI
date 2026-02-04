@@ -26,3 +26,13 @@ export const formatUploadedAt = (timestamp: number): string => {
 export async function getDb(): Promise<IDBPDatabase<BIDB>> {
   return dbPromise;
 }
+
+/** Delete a period and all its table data from IndexedDB in a single transaction. */
+export async function deletePeriod(periodNo: number): Promise<void> {
+  const db = await getDb();
+  const tx = db.transaction(['periods', 'tables'], 'readwrite');
+  tx.objectStore('periods').delete(periodNo);
+  // Delete all table entries whose key starts with `${periodNo}:`
+  tx.objectStore('tables').delete(IDBKeyRange.bound(`${periodNo}:`, `${periodNo}:\uffff`));
+  await tx.done;
+}
