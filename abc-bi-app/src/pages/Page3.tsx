@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useRefreshContext } from '../contexts/RefreshContext';
 import { DataTable } from '../components/DataTable';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { getTableData } from '../dataApi';
@@ -11,6 +12,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 export function Page3() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { refreshToken } = useRefreshContext();
   const periodNo = Number(searchParams.get('periodNo'));
   const customerId = searchParams.get('customerId') ?? '';
   const activityCenterKey = searchParams.get('activityCenterKey') ? decodeURIComponent(searchParams.get('activityCenterKey')!) : '';
@@ -28,7 +30,7 @@ export function Page3() {
         )
       );
     });
-  }, [periodNo, customerId, activityCenterKey]);
+  }, [periodNo, customerId, activityCenterKey, refreshToken]);
 
   if (isNaN(periodNo) || !customerId || !activityCenterKey) {
     navigate('/page0');

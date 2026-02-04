@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useRefreshContext } from '../contexts/RefreshContext';
 import { DataTable } from '../components/DataTable';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { getTableData } from '../dataApi';
@@ -17,6 +18,7 @@ interface GroupedRow {
 export function Page2() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { refreshToken } = useRefreshContext();
   const periodNo = Number(searchParams.get('periodNo'));
   const customerId = searchParams.get('customerId') ?? '';
   const [data, setData] = useState<GroupedRow[]>([]);
@@ -34,7 +36,7 @@ export function Page2() {
       }, {} as Record<string, GroupedRow>);
       setData(Object.values(grouped));
     });
-  }, [periodNo, customerId]);
+  }, [periodNo, customerId, refreshToken]);
 
   if (isNaN(periodNo) || !customerId) {
     navigate('/page0');

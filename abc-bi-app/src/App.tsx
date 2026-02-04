@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { RefreshProvider } from './contexts/RefreshContext';
 import { Header } from './components/Header';
 import { Page0 } from './pages/Page0';
 import { Page1 } from './pages/Page1';
@@ -9,7 +10,7 @@ import { Page5 } from './pages/Page5';
 
 function App() {
   return (
-    <>
+    <RefreshProvider>
       <Header />
       <main>
         <Routes>
@@ -23,7 +24,7 @@ function App() {
           <Route path="*" element={<Navigate to="/page0" replace />} />
         </Routes>
       </main>
-    </>
+    </RefreshProvider>
   );
 }
 

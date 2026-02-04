@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useRefreshContext } from '../contexts/RefreshContext';
 import { DataTable } from '../components/DataTable';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SimpleChart } from '../components/SimpleChart';
@@ -36,6 +37,7 @@ function computePeriodAggregate(periodNo: number, rows: CustomerProfitResultRow[
 export function Page0() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { refreshToken } = useRefreshContext();
   const periodNoStr = searchParams.get('periodNo');
   const periodNo = periodNoStr ? Number(periodNoStr) : NaN;
   const [data, setData] = useState<CustomerProfitResultRow[]>([]);
@@ -50,7 +52,7 @@ export function Page0() {
       return;
     }
     getTableData<CustomerProfitResultRow>(periodNo, 'CustomerProfitResult').then(setData);
-  }, [periodNo]);
+  }, [periodNo, refreshToken]);
 
   useEffect(() => {
     setTrendLoading(true);
@@ -72,7 +74,7 @@ export function Page0() {
       })
       .catch(() => setTrendError('No data'))
       .finally(() => setTrendLoading(false));
-  }, []);
+  }, [refreshToken]);
 
   const columns: ColumnDef<CustomerProfitResultRow, unknown>[] = [
     { accessorKey: 'customerId', header: 'CustomerID' },

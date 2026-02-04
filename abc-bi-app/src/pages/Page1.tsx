@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useRefreshContext } from '../contexts/RefreshContext';
 import { DataTable } from '../components/DataTable';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { getTableData } from '../dataApi';
@@ -10,6 +11,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 export function Page1() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { refreshToken } = useRefreshContext();
   const periodNo = Number(searchParams.get('periodNo'));
   const customerId = searchParams.get('customerId') ?? '';
   const company = searchParams.get('company') ?? '';
@@ -21,7 +23,7 @@ export function Page1() {
     getTableData<CustomerProductProfitRow>(periodNo, 'CustomerProductProfit').then((rows) => {
       setData(rows.filter((r) => r.periodNo === periodNo && r.customerId === customerId));
     });
-  }, [periodNo, customerId]);
+  }, [periodNo, customerId, refreshToken]);
 
   if (isNaN(periodNo) || !customerId) {
     navigate('/page0');

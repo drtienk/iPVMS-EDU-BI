@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useRefreshContext } from '../contexts/RefreshContext';
 import { PeriodSelector } from './PeriodSelector';
 import { UploadExcelButton } from './UploadExcelButton';
 import { getPeriodInfo, getAllPeriods, deletePeriod } from '../dataApi';
@@ -7,15 +8,15 @@ import type { PeriodInfo } from '../types';
 
 export function Header() {
   const navigate = useNavigate();
+  const { refreshToken, triggerRefresh } = useRefreshContext();
   const [periodNo, setPeriodNo] = useState<number | null>(null);
   const [sheetStatus, setSheetStatus] = useState<Record<string, boolean>>({});
   const [periods, setPeriods] = useState<PeriodInfo[]>([]);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
 
   useEffect(() => {
     getAllPeriods().then(setPeriods);
-  }, [refreshKey]);
+  }, [refreshToken]);
 
   const loadStatus = async (no: number) => {
     const info = await getPeriodInfo(no);
@@ -38,8 +39,8 @@ export function Header() {
       await deletePeriod(periodNo);
       const newPeriods = await getAllPeriods();
       setPeriods(newPeriods);
-      setRefreshKey((k) => k + 1);
-      const wasCurrent = true; // we are deleting the selected period
+      triggerRefresh();
+      const wasCurrent = true;
       if (wasCurrent) {
         setSheetStatus({});
         if (newPeriods.length > 0) {
@@ -56,6 +57,15 @@ export function Header() {
     } catch (err) {
       setDeleteMessage('Failed to delete period');
       setTimeout(() => setDeleteMessage(null), 2000);
+    }
+  };
+
+  const handleUploaded = (latestPeriodNo?: number) => {
+    triggerRefresh();
+    if (periodNo != null) loadStatus(periodNo);
+    if (latestPeriodNo != null) {
+      setPeriodNo(latestPeriodNo);
+      navigate(`/page0?periodNo=${latestPeriodNo}`);
     }
   };
 
@@ -78,7 +88,16 @@ export function Header() {
         <h1>ABC BI</h1>
       </Link>
       <span className="header-period">
-        Period: <PeriodSelector periods={periods} refreshKey={refreshKey} onPeriodChange={setPeriodNo} />
+        Period: <PeriodSelector periods={periods} refreshKey={refreshToken} onPeriodChange={setPeriodNo} />
+        <button
+          type="button"
+          className="header-refresh"
+          onClick={triggerRefresh}
+          title="Reload data from IndexedDB"
+          aria-label="Refresh"
+        >
+          Refresh
+        </button>
         <button
           type="button"
           className="header-delete-period"
@@ -94,7 +113,7 @@ export function Header() {
       <span className={`sheet-status ${allOk ? 'ok' : 'error'}`}>
         {okCount}/{required.length} {allOk ? 'OK ✓' : ''}
       </span>
-      <UploadExcelButton onUploaded={() => { setRefreshKey((k) => k + 1); if (periodNo != null) loadStatus(periodNo); }} />
+      <UploadExcelButton onUploaded={handleUploaded} />
     </header>
   );
 }
