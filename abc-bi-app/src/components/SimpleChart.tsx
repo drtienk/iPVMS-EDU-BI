@@ -15,13 +15,29 @@ export interface SimpleChartProps {
   yLabel?: string;
   formatX?: (x: number) => string;
   formatY?: (y: number) => string;
+  /** Bar fill color (bar chart only). When unset, keeps default positive/negative colors. */
+  color?: string;
+  /** Format value shown above each bar (bar chart only). Default: toLocaleString('en-US', { maximumFractionDigits: 0 }). */
+  barLabelFormatter?: (value: number) => string;
+  /** Format x-axis labels (e.g. periodNo → MMYYYY). When set, used for bottom labels instead of formatX. */
+  xLabelFormatter?: (x: number | string) => string;
   /** When set, bar chart rects are clickable and show pointer cursor. */
   onBarClick?: (datum: SimpleChartDatum) => void;
+}
+
+/** Format periodNo (e.g. 202401) as MMYYYY (e.g. "012024"). */
+export function formatMonthMMYYYY(periodNo: number | string): string {
+  const p = String(periodNo);
+  return p.slice(4, 6) + p.slice(0, 4);
 }
 
 const DEFAULT_WIDTH = 400;
 const DEFAULT_HEIGHT = 220;
 const PAD = { left: 48, right: 16, top: 16, bottom: 36 };
+
+const DEFAULT_BAR_COLOR_POSITIVE = '#1976d2';
+const DEFAULT_BAR_COLOR_NEGATIVE = '#e57373';
+const MIN_BAR_HEIGHT_FOR_LABEL = 12;
 
 export function SimpleChart({
   data,
@@ -32,6 +48,9 @@ export function SimpleChart({
   yLabel,
   formatX = (x) => String(x),
   formatY = (y) => String(y),
+  color,
+  barLabelFormatter,
+  xLabelFormatter,
   onBarClick,
 }: SimpleChartProps) {
   if (data.length === 0) {
@@ -73,14 +92,21 @@ export function SimpleChart({
       </text>
     );
   }
+  const formatBottomLabel = (x: number | string) => (xLabelFormatter != null ? xLabelFormatter(x) : formatX(Number(x)));
+  const showBottomLabel = (i: number) => data.length <= 12 || i % 3 === 0;
+
   data.forEach((d, i) => {
     const tx = scaleX(d.x);
     tickNodes.push(
-      <line key={`x-${i}`} x1={tx} y1={PAD.top + innerHeight} x2={tx} y2={PAD.top + innerHeight + 4} stroke="#888" strokeWidth={1} />,
-      <text key={`xt-${i}`} x={tx} y={PAD.top + innerHeight + 14} textAnchor="middle" fontSize={10} fill="#444">
-        {formatX(d.x)}
-      </text>
+      <line key={`x-${i}`} x1={tx} y1={PAD.top + innerHeight} x2={tx} y2={PAD.top + innerHeight + 4} stroke="#888" strokeWidth={1} />
     );
+    if (showBottomLabel(i)) {
+      tickNodes.push(
+        <text key={`xt-${i}`} x={tx} y={PAD.top + innerHeight + 14} textAnchor="middle" fontSize={10} fill="#444">
+          {formatBottomLabel(d.x)}
+        </text>
+      );
+    }
   });
 
   return (
@@ -109,17 +135,35 @@ export function SimpleChart({
             const yBase = scaleY(0);
             const h = Math.abs(yBase - yTop);
             const y = d.y >= 0 ? yTop : yBase;
+            const barFill = color ?? (d.y >= 0 ? DEFAULT_BAR_COLOR_POSITIVE : DEFAULT_BAR_COLOR_NEGATIVE);
+            const barLabelText =
+              barLabelFormatter != null ? barLabelFormatter(d.y) : d.y.toLocaleString('en-US', { maximumFractionDigits: 0 });
+            const showBarLabel = h >= MIN_BAR_HEIGHT_FOR_LABEL;
+            const barCenterX = x + barWidth / 2;
+            const labelY = y - 4;
             return (
-              <rect
-                key={i}
-                x={x}
-                y={y}
-                width={barWidth}
-                height={h}
-                fill={d.y >= 0 ? '#1976d2' : '#e57373'}
-                style={onBarClick ? { cursor: 'pointer' } : undefined}
-                onClick={() => onBarClick?.(d)}
-              />
+              <g key={i}>
+                <rect
+                  x={x}
+                  y={y}
+                  width={barWidth}
+                  height={h}
+                  fill={barFill}
+                  style={onBarClick ? { cursor: 'pointer' } : undefined}
+                  onClick={() => onBarClick?.(d)}
+                />
+                {showBarLabel && (
+                  <text
+                    x={barCenterX}
+                    y={labelY}
+                    textAnchor="middle"
+                    fontSize={10}
+                    fill="#333"
+                  >
+                    {barLabelText}
+                  </text>
+                )}
+              </g>
             );
           })}
       </svg>

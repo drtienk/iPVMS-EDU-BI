@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useRefreshContext } from '../contexts/RefreshContext';
 import { DataTable } from '../components/DataTable';
 import { Breadcrumb } from '../components/Breadcrumb';
-import { SimpleChart } from '../components/SimpleChart';
+import { SimpleChart, formatMonthMMYYYY } from '../components/SimpleChart';
 import { getTableData, listPeriods, getTable } from '../dataApi';
 import { formatCurrency, formatPercent } from '../utils/format';
 import { toNumber } from '../normalize';
@@ -220,7 +220,7 @@ export function Page0() {
     );
   };
 
-  const breadcrumb = [{ label: '顧客總覽', path: `/page0?periodNo=${periodNo}` }];
+  const breadcrumb = [{ label: 'Customer Overview', path: `/page0?periodNo=${periodNo}` }];
 
   const chartFormatCurrency = (y: number) => formatCurrency(y);
   const chartFormatCount = (y: number) => String(Math.round(y));
@@ -237,10 +237,13 @@ export function Page0() {
         {!dashboardLoading && !dashboardError && aggregates.length >= 2 && (
           <div className="dashboard-grid">
             <div className="dashboard-chart">
-              <h3 className="dashboard-chart-title">Total profitability</h3>
+              <h3 className="dashboard-chart-title">Total Profitability</h3>
               <SimpleChart
                 data={aggregates.map((a) => ({ x: a.periodNo, y: a.totalProfitability }))}
                 type="bar"
+                color="#2E7D32"
+                barLabelFormatter={(v) => v.toLocaleString('en-US')}
+                xLabelFormatter={(x) => formatMonthMMYYYY(x)}
                 xLabel="Period"
                 yLabel="Value"
                 formatX={(x) => String(x)}
@@ -251,10 +254,13 @@ export function Page0() {
               />
             </div>
             <div className="dashboard-chart">
-              <h3 className="dashboard-chart-title">Total revenue</h3>
+              <h3 className="dashboard-chart-title">Total Revenue</h3>
               <SimpleChart
                 data={aggregates.map((a) => ({ x: a.periodNo, y: a.totalRevenue }))}
                 type="bar"
+                color="#1565C0"
+                barLabelFormatter={(v) => v.toLocaleString('en-US')}
+                xLabelFormatter={(x) => formatMonthMMYYYY(x)}
                 xLabel="Period"
                 yLabel="Value"
                 formatX={(x) => String(x)}
@@ -264,10 +270,13 @@ export function Page0() {
               />
             </div>
             <div className="dashboard-chart">
-              <h3 className="dashboard-chart-title">Total service cost</h3>
+              <h3 className="dashboard-chart-title">Total Service Cost</h3>
               <SimpleChart
                 data={aggregates.map((a) => ({ x: a.periodNo, y: a.totalServiceCost }))}
                 type="bar"
+                color="#C62828"
+                barLabelFormatter={(v) => v.toLocaleString('en-US')}
+                xLabelFormatter={(x) => formatMonthMMYYYY(x)}
                 xLabel="Period"
                 yLabel="Value"
                 formatX={(x) => String(x)}
@@ -277,7 +286,7 @@ export function Page0() {
               />
             </div>
             <div className="dashboard-chart">
-              <h3 className="dashboard-chart-title">Total customer count</h3>
+              <h3 className="dashboard-chart-title">Customer Count</h3>
               <SimpleChart
                 data={aggregates.map((a) => ({ x: a.periodNo, y: a.customerCount }))}
                 type="line"
@@ -307,14 +316,14 @@ export function Page0() {
               className={`drilldown-tab ${drilldownMode === 'ranked' ? 'active' : ''}`}
               onClick={() => setDrilldownMode('ranked')}
             >
-              排序清單
+              Ranked List
             </button>
             <button
               type="button"
               className={`drilldown-tab ${drilldownMode === 'hist' ? 'active' : ''}`}
               onClick={() => setDrilldownMode('hist')}
             >
-              區間分布
+              Distribution
             </button>
             <button
               type="button"
@@ -322,7 +331,7 @@ export function Page0() {
               onClick={() => productDataAvailable && setDrilldownMode('product')}
               disabled={!productDataAvailable}
             >
-              按產品
+              By Product
             </button>
           </div>
 
@@ -334,10 +343,10 @@ export function Page0() {
               {drilldownRows.length > 0 && (
                 <>
                   <div className="drilldown-summary">
-                    <span>顧客數: {drilldownRows.length}</span>
-                    <span>總獲利: {formatCurrency(drilldownRows.reduce((s, r) => s + toNumber(r.CustomerProfit, 0), 0))}</span>
-                    <span>平均獲利: {formatCurrency(drilldownRows.length ? drilldownRows.reduce((s, r) => s + toNumber(r.CustomerProfit, 0), 0) / drilldownRows.length : 0)}</span>
-                    <span>中位數: {formatCurrency(median(drilldownRows.map((r) => toNumber(r.CustomerProfit, 0)).sort((a, b) => a - b)))}</span>
+                    <span>Customers: {drilldownRows.length}</span>
+                    <span>Total Profit: {formatCurrency(drilldownRows.reduce((s, r) => s + toNumber(r.CustomerProfit, 0), 0))}</span>
+                    <span>Avg Profit: {formatCurrency(drilldownRows.length ? drilldownRows.reduce((s, r) => s + toNumber(r.CustomerProfit, 0), 0) / drilldownRows.length : 0)}</span>
+                    <span>Median: {formatCurrency(median(drilldownRows.map((r) => toNumber(r.CustomerProfit, 0)).sort((a, b) => a - b)))}</span>
                   </div>
                   <div className="top-n-row">
                     <label>
@@ -353,7 +362,7 @@ export function Page0() {
                       className="btn"
                       onClick={() => setShowAllRanked(!showAllRanked)}
                     >
-                      {showAllRanked ? '只顯示 Top N' : '顯示全部'}
+                      {showAllRanked ? 'Show Top N Only' : 'Show All'}
                     </button>
                   </div>
                   <div className="table-container">
@@ -430,7 +439,7 @@ export function Page0() {
                   height={260}
                 />
               ) : (
-                <p className="trend-panel-message">需要 product 欄位/表才能啟用。請上傳含 ProductProfitResult 的資料。</p>
+                <p className="trend-panel-message">Product view requires ProductProfitResult data. Please upload data with ProductProfitResult.</p>
               )}
             </>
           )}
