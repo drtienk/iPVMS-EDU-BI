@@ -4,8 +4,6 @@ import { useRefreshContext } from '../contexts/RefreshContext';
 import { DataTable } from '../components/DataTable';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SimpleChart, formatMonthMMYYYY } from '../components/SimpleChart';
-import { GroupedBarRows } from '../components/GroupedBarRows';
-import type { GroupedBarRow } from '../components/GroupedBarRows';
 import { getTableData, listPeriods, getTable } from '../dataApi';
 import { formatCurrency, formatPercent } from '../utils/format';
 import { toNumber } from '../normalize';
@@ -14,25 +12,6 @@ import type { ColumnDef } from '@tanstack/react-table';
 
 const DRILLDOWN_BINS = 10;
 const DEFAULT_TOP_N = 20;
-const DRILLDOWN_TOP_PRODUCTS = 10;
-
-/** Get up to 3 consecutive periods centered on clicked (prev, current, next). */
-function getPeriodRange(periodNos: number[], clicked: number): number[] {
-  const sorted = [...periodNos].sort((a, b) => a - b);
-  const idx = sorted.indexOf(clicked);
-  if (idx === -1) return [clicked];
-  let start = idx - 1;
-  let end = idx + 1;
-  if (start < 0) {
-    start = 0;
-    end = Math.min(2, sorted.length - 1);
-  }
-  if (end >= sorted.length) {
-    end = sorted.length - 1;
-    start = Math.max(0, end - 2);
-  }
-  return sorted.slice(start, end + 1);
-}
 
 export interface DashboardAggregate {
   periodNo: number;
@@ -119,18 +98,15 @@ export function Page0() {
   const [dashboardError, setDashboardError] = useState<string | null>(null);
 
   const [selectedPeriodNo, setSelectedPeriodNo] = useState<number | null>(null);
-  const [selectedPeriods, setSelectedPeriods] = useState<number[]>([]);
-  const [drilldownMode, setDrilldownMode] = useState<'ranked' | 'hist' | 'product' | 'employee'>('ranked');
+  const [drilldownMode, setDrilldownMode] = useState<'ranked' | 'hist' | 'product'>('ranked');
   const [topN, setTopN] = useState(DEFAULT_TOP_N);
   const [showAllRanked, setShowAllRanked] = useState(false);
   const [drilldownRows, setDrilldownRows] = useState<CustomerProfitResultRow[]>([]);
   const [histBins, setHistBins] = useState<HistBin[]>([]);
   const [productRows, setProductRows] = useState<{ productName: string; profit: number }[]>([]);
   const [productDataAvailable, setProductDataAvailable] = useState(false);
-  const [groupedProductRows, setGroupedProductRows] = useState<GroupedBarRow[]>([]);
   const [loadingDrilldown, setLoadingDrilldown] = useState(false);
   const [errorDrilldown, setErrorDrilldown] = useState<string | null>(null);
-  const employeeDataAvailable = false;
 
   useEffect(() => {
     if (isNaN(periodNo)) {
@@ -204,69 +180,6 @@ export function Page0() {
     };
   }, [selectedPeriodNo]);
 
-  useEffect(() => {
-    if (selectedPeriods.length === 0) {
-      setGroupedProductRows([]);
-      return;
-    }
-    let cancelled = false;
-    Promise.all(selectedPeriods.map((p) => getTable<ProductProfitResultRow>(p, 'ProductProfitResult')))
-      .then((results) => {
-        if (cancelled) return;
-        const byPeriod = new Map<number, Map<string, number>>();
-        const allProducts = new Set<string>();
-        results.forEach((rows, i) => {
-          const periodNo = selectedPeriods[i]!;
-          const map = new Map<string, number>();
-          for (const r of rows) {
-            const name = String(r.Product ?? r.ProductID ?? '').trim() || '(Unknown)';
-            const profit = toNumber(r.ProductProfit, 0);
-            map.set(name, (map.get(name) ?? 0) + profit);
-            allProducts.add(name);
-          }
-          byPeriod.set(periodNo, map);
-        });
-        const productTotals = Array.from(allProducts).map((name) => {
-          const sum = selectedPeriods.reduce(
-            (s, p) => s + Math.abs(byPeriod.get(p)?.get(name) ?? 0),
-            0
-          );
-          return { name, sum };
-        });
-        productTotals.sort((a, b) => b.sum - a.sum);
-        const topNames = new Set(productTotals.slice(0, DRILLDOWN_TOP_PRODUCTS).map((x) => x.name));
-        const rows: GroupedBarRow[] = [];
-        for (const { name } of productTotals.slice(0, DRILLDOWN_TOP_PRODUCTS)) {
-          rows.push({
-            group: name,
-            values: selectedPeriods.map((p) => ({
-              x: p,
-              y: byPeriod.get(p)?.get(name) ?? 0,
-            })),
-          });
-        }
-        const othersSum = productTotals.slice(DRILLDOWN_TOP_PRODUCTS).reduce((s, x) => s + x.sum, 0);
-        if (othersSum > 0 || productTotals.length > DRILLDOWN_TOP_PRODUCTS) {
-          rows.push({
-            group: 'Others',
-            values: selectedPeriods.map((p) => ({
-              x: p,
-              y: Array.from(allProducts)
-                .filter((n) => !topNames.has(n))
-                .reduce((s, n) => s + (byPeriod.get(p)?.get(n) ?? 0), 0),
-            })),
-          });
-        }
-        setGroupedProductRows(rows);
-      })
-      .catch(() => {
-        if (!cancelled) setGroupedProductRows([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedPeriods]);
-
   const columns: ColumnDef<CustomerProfitResultRow, unknown>[] = [
     { accessorKey: 'customerId', header: 'CustomerID' },
     { accessorKey: 'Customer', header: 'Customer' },
@@ -337,12 +250,7 @@ export function Page0() {
                 formatY={chartFormatCurrency}
                 width={340}
                 height={200}
-                onBarClick={(d) => {
-                const p = Number(d.x);
-                setSelectedPeriodNo(p);
-                const periodList = aggregates.map((a) => a.periodNo);
-                setSelectedPeriods(getPeriodRange(periodList, p));
-              }}
+                onBarClick={(d) => setSelectedPeriodNo(Number(d.x))}
               />
             </div>
             <div className="dashboard-chart">
@@ -397,41 +305,12 @@ export function Page0() {
       {selectedPeriodNo != null && (
         <section className="trend-panel drilldown-panel">
           <div className="drilldown-header-row">
-            <h3 className="drilldown-title">
-              {selectedPeriods.length === 0
-                ? `Drill-down: Period ${selectedPeriodNo}`
-                : selectedPeriods.length === 1
-                  ? `Drill-down: Period ${selectedPeriods[0]}`
-                  : `Drill-down: Period ${selectedPeriods[0]}–${selectedPeriods[selectedPeriods.length - 1]}`}
-            </h3>
-            <button
-              type="button"
-              className="drilldown-close btn"
-              onClick={() => {
-                setSelectedPeriodNo(null);
-                setSelectedPeriods([]);
-              }}
-            >
+            <h3 className="drilldown-title">Drill-down: Period {selectedPeriodNo}</h3>
+            <button type="button" className="drilldown-close btn" onClick={() => setSelectedPeriodNo(null)}>
               Close
             </button>
           </div>
           <div className="drilldown-tabs">
-            <button
-              type="button"
-              className={`drilldown-tab ${drilldownMode === 'product' ? 'active' : ''} ${!productDataAvailable ? 'disabled' : ''}`}
-              onClick={() => productDataAvailable && setDrilldownMode('product')}
-              disabled={!productDataAvailable}
-            >
-              By Product
-            </button>
-            <button
-              type="button"
-              className={`drilldown-tab ${drilldownMode === 'employee' ? 'active' : ''} disabled`}
-              disabled
-              title="Employee breakdown requires employee fields/table (not found in current dataset)."
-            >
-              By Service Employee
-            </button>
             <button
               type="button"
               className={`drilldown-tab ${drilldownMode === 'ranked' ? 'active' : ''}`}
@@ -445,6 +324,14 @@ export function Page0() {
               onClick={() => setDrilldownMode('hist')}
             >
               Distribution
+            </button>
+            <button
+              type="button"
+              className={`drilldown-tab ${drilldownMode === 'product' ? 'active' : ''} ${!productDataAvailable ? 'disabled' : ''}`}
+              onClick={() => productDataAvailable && setDrilldownMode('product')}
+              disabled={!productDataAvailable}
+            >
+              By Product
             </button>
           </div>
 
@@ -533,27 +420,28 @@ export function Page0() {
 
           {!loadingDrilldown && !errorDrilldown && drilldownMode === 'product' && (
             <>
-              {productDataAvailable && groupedProductRows.length > 0 ? (
-                <GroupedBarRows
-                  rows={groupedProductRows}
-                  formatPeriod={(x) => formatMonthMMYYYY(x)}
-                  barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
-                  barLabelFormatter={(y) => y.toLocaleString('en-US')}
-                  width={560}
-                  labelWidth={140}
+              {productDataAvailable && productRows.length > 0 ? (
+                <SimpleChart
+                  data={
+                    productRows.length > 10
+                      ? [
+                          ...productRows.slice(0, 10).map((r, i) => ({ x: i, y: r.profit })),
+                          { x: 10, y: productRows.slice(10).reduce((s, r) => s + r.profit, 0) },
+                        ]
+                      : productRows.slice(0, 10).map((r, i) => ({ x: i, y: r.profit }))
+                  }
+                  type="bar"
+                  xLabel="Product"
+                  yLabel="Profit"
+                  formatX={(x) => (x === 10 ? 'Others' : productRows[x]?.productName ?? String(x))}
+                  formatY={chartFormatCurrency}
+                  width={600}
+                  height={260}
                 />
-              ) : productDataAvailable ? (
-                <p className="trend-panel-message">No product data for selected period(s).</p>
               ) : (
                 <p className="trend-panel-message">Product view requires ProductProfitResult data. Please upload data with ProductProfitResult.</p>
               )}
             </>
-          )}
-
-          {!loadingDrilldown && !errorDrilldown && drilldownMode === 'employee' && (
-            <p className="trend-panel-message">
-              Employee breakdown requires employee fields/table (not found in current dataset).
-            </p>
           )}
         </section>
       )}

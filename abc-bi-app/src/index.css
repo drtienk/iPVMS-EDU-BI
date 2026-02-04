@@ -411,35 +411,3 @@ body {
   border-radius: 4px;
   font-size: 14px;
 }
-
-/* Grouped bar rows (multi-period drill-down) */
-.grouped-bar-rows {
-  margin-top: 8px;
-  font-size: 13px;
-}
-
-.grouped-bar-rows-empty {
-  color: #666;
-  padding: 12px 0;
-}
-
-.grouped-bar-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid var(--border);
-  min-height: 52px;
-}
-
-.grouped-bar-row-label {
-  flex-shrink: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #333;
-}
-
-.grouped-bar-row-chart {
-  flex: 1;
-  min-width: 0;
-}
