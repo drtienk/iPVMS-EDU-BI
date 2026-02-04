@@ -39,7 +39,7 @@ export function Header() {
 
   return (
     <header className="header">
-      <Link to={currentPeriodNo ? `/page0?periodNo=${currentPeriodNo}` : '/page0'} className="header-title">
+      <Link to={periodNo != null ? `/page0?periodNo=${periodNo}` : '/page0'} className="header-title">
         <h1>ABC BI</h1>
       </Link>
       <span className="header-period">
