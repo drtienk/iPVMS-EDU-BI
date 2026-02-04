@@ -72,7 +72,7 @@ const DB_NAME = 'abc-bi-db';
 const DB_VERSION = 2;
 
 export const dbPromise = openDB<BIDB>(DB_NAME, DB_VERSION, {
-  upgrade(db, oldVersion, newVersion) {
+  upgrade(db, oldVersion) {
     if (oldVersion < 1) {
       db.createObjectStore('periods', { keyPath: 'periodNo' });
       db.createObjectStore('tables');
@@ -95,12 +95,48 @@ export async function getDb(): Promise<IDBPDatabase<BIDB>> {
   return dbPromise;
 }
 
-/** Delete a period and all its table data from IndexedDB in a single transaction. */
+/**
+ * Iterate over keys with the given prefix and delete each (cursor-based; delete() does not accept key range).
+ */
+async function deleteStoreKeysByPrefix(
+  store: { openCursor(range?: IDBKeyRange): Promise<unknown>; delete(key: string): Promise<void> },
+  prefix: string
+): Promise<void> {
+  const range = IDBKeyRange.bound(prefix, prefix + '\uffff');
+  let cursor = (await store.openCursor(range)) as { key: string; continue(): Promise<unknown> } | null;
+  while (cursor) {
+    await store.delete(cursor.key);
+    cursor = (await cursor.continue()) as { key: string; continue(): Promise<unknown> } | null;
+  }
+}
+
+/** Delete a period and all related data from IndexedDB in a single transaction. */
 export async function deletePeriod(periodNo: number): Promise<void> {
   const db = await getDb();
-  const tx = db.transaction(['periods', 'tables'], 'readwrite');
-  tx.objectStore('periods').delete(periodNo);
-  tx.objectStore('tables').delete(IDBKeyRange.bound(`${periodNo}:`, `${periodNo}:\uffff`));
+  const tx = db.transaction(
+    ['periods', 'tables', 'upload_sessions', 'dim_customers', 'dim_products', 'fact_customer_product'],
+    'readwrite'
+  );
+  const periodStore = tx.objectStore('periods');
+  const tablesStore = tx.objectStore('tables');
+  const sessionsStore = tx.objectStore('upload_sessions');
+  const dimCustomersStore = tx.objectStore('dim_customers');
+  const dimProductsStore = tx.objectStore('dim_products');
+  const factStore = tx.objectStore('fact_customer_product');
+
+  periodStore.delete(periodNo);
+
+  const prefix = `${periodNo}:`;
+  await deleteStoreKeysByPrefix(tablesStore, prefix);
+  await deleteStoreKeysByPrefix(dimCustomersStore, prefix);
+  await deleteStoreKeysByPrefix(dimProductsStore, prefix);
+  await deleteStoreKeysByPrefix(factStore, prefix);
+
+  const sessionIds = await sessionsStore.index('by_periodNo').getAllKeys(IDBKeyRange.only(periodNo));
+  for (const id of sessionIds) {
+    sessionsStore.delete(id);
+  }
+
   await tx.done;
 }
 
