@@ -84,7 +84,7 @@
 ### Page0 狀態
 
 - `selectedPeriodNo: number | null`：點選的期間，非 null 時顯示 Drilldown Panel。
-- `drilldownMode: 'ranked' | 'hist' | 'product'`：預設 `'ranked'`（排序清單）。
+- `drilldownMode: 'ranked' | 'hist' | 'product' | 'salesActivityCenter'`：預設 `'ranked'`（排序清單）。
 - `topN: number`：預設 20；排序清單的 Top N。
 - `showAllRanked: boolean`：是否顯示全部（或僅 Top N）。
 - `drilldownRows: CustomerProfitResultRow[]`：該期顧客獲利列，已依 `CustomerProfit` 降序。
@@ -96,11 +96,49 @@
 
 - **Mode 1 – 排序清單（預設）**：顧客獲利清單依 `CustomerProfit` 高→低；欄位：Rank、CustomerID、Customer、CustomerProfit、Revenue (Price)、ServiceCost；摘要：顧客數、總獲利、平均獲利、中位數；Top N（10/20/50）與「顯示全部」切換。
 - **Mode 2 – 區間分布**：以 `CustomerProfit` 等寬 10 bins，用 `SimpleChart` 畫 bar（x=區間標籤，y=count）。
-- **Mode 3 – 按產品**：資料來源 `getTable(periodNo, 'ProductProfitResult')`；彙總 `Product` / `ProductProfit`，Top 10 + Others，以 `SimpleChart` 畫 bar。若該期無 ProductProfitResult 或無資料，tab 為 disabled，並顯示「需要 product 欄位/表才能啟用…」。
+- **Mode 3 – 按產品**：資料來源 `getTable(periodNo, 'ProductProfitResult')`；彙總 `Product` / `ProductProfit`，Top 10 + Others，以 `GroupedBarRows` 多期間並排。若該期無 ProductProfitResult 或無資料，tab 為 disabled。
+- **Mode 4 – By Sales Activity Center**：資料來源 `getTable(periodNo, 'CustomerProductProfit')`；彙總 `SalesActivityCenter` / `NetProfit`，Top 10 + Others，以 `GroupedBarRows` 多期間並排。若無 SalesActivityCenter 資料，tab 為 disabled，並顯示 "Sales Activity Center data is not available in the current dataset."
 
 ### Product mode 條件
 
 - 需上傳之 Excel 含有 **ProductProfitResult** sheet，且該期有資料；欄位依 `types.ts` 之 `ProductProfitResultRow`（含 `Product`、`ProductProfit` 等）。若未上傳或表為空，按產品 tab 會 disabled，並顯示說明文字。
+
+---
+
+## Drill-down Extension – Sales Activity Center (2026-02-04)
+
+### Grouping dimension: SalesActivityCenter
+
+- Drill-down tabs include: **By Product**, **By Sales Activity Center**, Ranked List, Distribution.
+- **By Sales Activity Center** groups customer profitability by **SalesActivityCenter** (same pattern as By Product; only the grouping key changes).
+
+### Data source tables used
+
+| 項目 | 實際採用 |
+|------|----------|
+| 表名 | `CustomerProductProfit`（`getTable(periodNo, 'CustomerProductProfit')`） |
+| 維度欄位 | `SalesActivityCenter`（`CustomerProductProfitRow.SalesActivityCenter`） |
+| 彙總數值 | `NetProfit`（sum per SalesActivityCenter per period） |
+
+- **CustomerProfitResult** does not contain SalesActivityCenter in the project types; **CustomerProductProfit** contains both `SalesActivityCenter` and `NetProfit` (and is linked to customer via `customerId`). Aggregation: **Sum(NetProfit) per SalesActivityCenter per period**.
+
+### Profit aggregation logic
+
+- For each period in `selectedPeriods`, load `CustomerProductProfit` rows.
+- Group by `SalesActivityCenter` (empty → "(Unknown)").
+- Value per period = sum of `NetProfit` for that group. Missing period → 0.
+
+### Multi-period comparison logic
+
+- `selectedPeriods` (max 3 periods, e.g. 202401–202403). For each Sales Activity Center: 3 parallel bars. Sort by sum of **ABS(profit)** across periods; **Top 10** + **"Others"**.
+
+### Fallback behavior
+
+- If no row has non-empty `SalesActivityCenter` (or table empty): tab **disabled**, message: *"Sales Activity Center data is not available in the current dataset."*
+
+### Component reuse
+
+- Same **GroupedBarRows** as By Product. Color: Profit ≥ 0 → #2E7D32; Profit < 0 → #C62828. Month label MMYYYY below each bar; value above bar.
 
 ---
 

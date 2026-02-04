@@ -9,12 +9,18 @@ import type { GroupedBarRow } from '../components/GroupedBarRows';
 import { getTableData, listPeriods, getTable } from '../dataApi';
 import { formatCurrency, formatPercent } from '../utils/format';
 import { toNumber } from '../normalize';
-import type { CustomerProfitResultRow, IncomeStatmentRow, ProductProfitResultRow } from '../types';
+import type {
+  CustomerProductProfitRow,
+  CustomerProfitResultRow,
+  IncomeStatmentRow,
+  ProductProfitResultRow,
+} from '../types';
 import type { ColumnDef } from '@tanstack/react-table';
 
 const DRILLDOWN_BINS = 10;
 const DEFAULT_TOP_N = 20;
 const DRILLDOWN_TOP_PRODUCTS = 10;
+const DRILLDOWN_TOP_SALES_ACTIVITY_CENTERS = 10;
 
 /** Get up to 3 consecutive periods centered on clicked (prev, current, next). */
 function getPeriodRange(periodNos: number[], clicked: number): number[] {
@@ -120,7 +126,7 @@ export function Page0() {
 
   const [selectedPeriodNo, setSelectedPeriodNo] = useState<number | null>(null);
   const [selectedPeriods, setSelectedPeriods] = useState<number[]>([]);
-  const [drilldownMode, setDrilldownMode] = useState<'ranked' | 'hist' | 'product' | 'employee'>('ranked');
+  const [drilldownMode, setDrilldownMode] = useState<'ranked' | 'hist' | 'product' | 'salesActivityCenter'>('ranked');
   const [topN, setTopN] = useState(DEFAULT_TOP_N);
   const [showAllRanked, setShowAllRanked] = useState(false);
   const [drilldownRows, setDrilldownRows] = useState<CustomerProfitResultRow[]>([]);
@@ -128,9 +134,10 @@ export function Page0() {
   const [productRows, setProductRows] = useState<{ productName: string; profit: number }[]>([]);
   const [productDataAvailable, setProductDataAvailable] = useState(false);
   const [groupedProductRows, setGroupedProductRows] = useState<GroupedBarRow[]>([]);
+  const [groupedSalesActivityCenterRows, setGroupedSalesActivityCenterRows] = useState<GroupedBarRow[]>([]);
+  const [salesActivityCenterDataAvailable, setSalesActivityCenterDataAvailable] = useState(false);
   const [loadingDrilldown, setLoadingDrilldown] = useState(false);
   const [errorDrilldown, setErrorDrilldown] = useState<string | null>(null);
-  const employeeDataAvailable = false;
 
   useEffect(() => {
     if (isNaN(periodNo)) {
@@ -162,6 +169,8 @@ export function Page0() {
       setHistBins([]);
       setProductRows([]);
       setProductDataAvailable(false);
+      setGroupedSalesActivityCenterRows([]);
+      setSalesActivityCenterDataAvailable(false);
       setErrorDrilldown(null);
       return;
     }
@@ -199,6 +208,17 @@ export function Page0() {
         setProductDataAvailable(list.length > 0);
       })
       .catch(() => {});
+    getTable<CustomerProductProfitRow>(selectedPeriodNo, 'CustomerProductProfit')
+      .then((rows) => {
+        if (cancelled) return;
+        const hasSalesActivityCenter = rows.some(
+          (r) => String(r.SalesActivityCenter ?? '').trim() !== ''
+        );
+        setSalesActivityCenterDataAvailable(hasSalesActivityCenter && rows.length > 0);
+      })
+      .catch(() => {
+        if (!cancelled) setSalesActivityCenterDataAvailable(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -261,6 +281,69 @@ export function Page0() {
       })
       .catch(() => {
         if (!cancelled) setGroupedProductRows([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPeriods]);
+
+  useEffect(() => {
+    if (selectedPeriods.length === 0) {
+      setGroupedSalesActivityCenterRows([]);
+      return;
+    }
+    let cancelled = false;
+    Promise.all(selectedPeriods.map((p) => getTable<CustomerProductProfitRow>(p, 'CustomerProductProfit')))
+      .then((results) => {
+        if (cancelled) return;
+        const byPeriod = new Map<number, Map<string, number>>();
+        const allCenters = new Set<string>();
+        results.forEach((rows, i) => {
+          const periodNo = selectedPeriods[i]!;
+          const map = new Map<string, number>();
+          for (const r of rows) {
+            const name = String(r.SalesActivityCenter ?? '').trim() || '(Unknown)';
+            const profit = toNumber(r.NetProfit, 0);
+            map.set(name, (map.get(name) ?? 0) + profit);
+            allCenters.add(name);
+          }
+          byPeriod.set(periodNo, map);
+        });
+        const centerTotals = Array.from(allCenters).map((name) => {
+          const sum = selectedPeriods.reduce(
+            (s, p) => s + Math.abs(byPeriod.get(p)?.get(name) ?? 0),
+            0
+          );
+          return { name, sum };
+        });
+        centerTotals.sort((a, b) => b.sum - a.sum);
+        const topNames = new Set(centerTotals.slice(0, DRILLDOWN_TOP_SALES_ACTIVITY_CENTERS).map((x) => x.name));
+        const rows: GroupedBarRow[] = [];
+        for (const { name } of centerTotals.slice(0, DRILLDOWN_TOP_SALES_ACTIVITY_CENTERS)) {
+          rows.push({
+            group: name,
+            values: selectedPeriods.map((p) => ({
+              x: p,
+              y: byPeriod.get(p)?.get(name) ?? 0,
+            })),
+          });
+        }
+        const othersSum = centerTotals.slice(DRILLDOWN_TOP_SALES_ACTIVITY_CENTERS).reduce((s, x) => s + x.sum, 0);
+        if (othersSum > 0 || centerTotals.length > DRILLDOWN_TOP_SALES_ACTIVITY_CENTERS) {
+          rows.push({
+            group: 'Others',
+            values: selectedPeriods.map((p) => ({
+              x: p,
+              y: Array.from(allCenters)
+                .filter((n) => !topNames.has(n))
+                .reduce((s, n) => s + (byPeriod.get(p)?.get(n) ?? 0), 0),
+            })),
+          });
+        }
+        setGroupedSalesActivityCenterRows(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setGroupedSalesActivityCenterRows([]);
       });
     return () => {
       cancelled = true;
@@ -426,11 +509,12 @@ export function Page0() {
             </button>
             <button
               type="button"
-              className={`drilldown-tab ${drilldownMode === 'employee' ? 'active' : ''} disabled`}
-              disabled
-              title="Employee breakdown requires employee fields/table (not found in current dataset)."
+              className={`drilldown-tab ${drilldownMode === 'salesActivityCenter' ? 'active' : ''} ${!salesActivityCenterDataAvailable ? 'disabled' : ''}`}
+              onClick={() => salesActivityCenterDataAvailable && setDrilldownMode('salesActivityCenter')}
+              disabled={!salesActivityCenterDataAvailable}
+              title={!salesActivityCenterDataAvailable ? 'Sales Activity Center data is not available in the current dataset.' : undefined}
             >
-              By Service Employee
+              By Sales Activity Center
             </button>
             <button
               type="button"
@@ -550,10 +634,25 @@ export function Page0() {
             </>
           )}
 
-          {!loadingDrilldown && !errorDrilldown && drilldownMode === 'employee' && (
-            <p className="trend-panel-message">
-              Employee breakdown requires employee fields/table (not found in current dataset).
-            </p>
+          {!loadingDrilldown && !errorDrilldown && drilldownMode === 'salesActivityCenter' && (
+            <>
+              {salesActivityCenterDataAvailable && groupedSalesActivityCenterRows.length > 0 ? (
+                <GroupedBarRows
+                  rows={groupedSalesActivityCenterRows}
+                  formatPeriod={(x) => formatMonthMMYYYY(x)}
+                  barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
+                  barLabelFormatter={(y) => y.toLocaleString('en-US')}
+                  width={560}
+                  labelWidth={140}
+                />
+              ) : salesActivityCenterDataAvailable ? (
+                <p className="trend-panel-message">No Sales Activity Center data for selected period(s).</p>
+              ) : (
+                <p className="trend-panel-message">
+                  Sales Activity Center data is not available in the current dataset.
+                </p>
+              )}
+            </>
           )}
         </section>
       )}
