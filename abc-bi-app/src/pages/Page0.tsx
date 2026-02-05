@@ -28,11 +28,17 @@ type Drilldown2State = null | {
   periods: number[];
 };
 
-/** Get up to 3 consecutive periods centered on clicked (prev, current, next). */
+/** Get 1–3 consecutive periods centered on clicked (prev, current, next). Works with 1, 2, or 3+ available periods. */
 function getPeriodRange(periodNos: number[], clicked: number): number[] {
   const sorted = [...periodNos].sort((a, b) => a - b);
-  const idx = sorted.indexOf(clicked);
-  if (idx === -1) return [clicked];
+  if (sorted.length === 0) return [clicked];
+  let idx = sorted.indexOf(clicked);
+  if (idx === -1) {
+    const nearest = sorted.reduce((a, b) =>
+      Math.abs(a - clicked) <= Math.abs(b - clicked) ? a : b
+    );
+    idx = sorted.indexOf(nearest);
+  }
   let start = idx - 1;
   let end = idx + 1;
   if (start < 0) {
@@ -43,7 +49,8 @@ function getPeriodRange(periodNos: number[], clicked: number): number[] {
     end = sorted.length - 1;
     start = Math.max(0, end - 2);
   }
-  return sorted.slice(start, end + 1);
+  const result = sorted.slice(start, end + 1);
+  return result.length > 0 ? result : [sorted[0] ?? clicked];
 }
 
 export interface DashboardAggregate {
@@ -521,10 +528,10 @@ export function Page0() {
         <h2 className="trend-panel-title">Customer Overview Dashboard</h2>
         {dashboardLoading && <p className="trend-panel-message">Loading…</p>}
         {!dashboardLoading && dashboardError && <p className="trend-panel-message">No data</p>}
-        {!dashboardLoading && !dashboardError && aggregates.length < 2 && (
-          <p className="trend-panel-message">Upload 2+ periods to see trends.</p>
+        {!dashboardLoading && !dashboardError && aggregates.length === 0 && (
+          <p className="trend-panel-message">Upload data to see the dashboard.</p>
         )}
-        {!dashboardLoading && !dashboardError && aggregates.length >= 2 && (
+        {!dashboardLoading && !dashboardError && aggregates.length >= 1 && (
           <div className="dashboard-grid">
             <div className="dashboard-chart">
               <h3 className="dashboard-chart-title">Total Profitability</h3>

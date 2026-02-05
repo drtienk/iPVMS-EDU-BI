@@ -84,6 +84,7 @@
 ### Page0 狀態
 
 - `selectedPeriodNo: number | null`：點選的期間，非 null 時顯示 Drilldown Panel。
+- `selectedPeriods: number[]`：實際用於下鑽的期間列表，**1–3 個**（由 `getPeriodRange` 依點擊的 bar 計算；單一 period 時長度為 1，多 period 時最多 3）。Drill-down 與 Drilldown 2 皆支援 1、2 或 3 個 period。
 - `drilldownMode: 'ranked' | 'hist' | 'product' | 'salesActivityCenter'`：預設 `'ranked'`（排序清單）。
 - `topN: number`：預設 20；排序清單的 Top N。
 - `showAllRanked: boolean`：是否顯示全部（或僅 Top N）。
@@ -130,7 +131,7 @@
 
 ### Multi-period comparison logic
 
-- `selectedPeriods` (max 3 periods, e.g. 202401–202403). For each Sales Activity Center: 3 parallel bars. Sort by sum of **ABS(profit)** across periods; **Top 10** + **"Others"**.
+- `selectedPeriods` (1–3 periods, e.g. 202401 only or 202401–202403). Drill-down supports a single period or up to 3. For each Sales Activity Center: N parallel bars (N = 1, 2, or 3). Sort by sum of **ABS(profit)** across periods; **Top 10** + **"Others"**.
 
 ### Fallback behavior
 
@@ -166,6 +167,10 @@
 
 - If after filtering by Sales Activity Center there are **no products** (empty result): show message: *"By Product drill-down requires customer-product-profit data linked to Sales Activity Center (not available in current dataset)."*
 - Same message is shown on load error (e.g. table missing or failed request).
+
+### 1–3 periods support
+
+- Drilldown 2 uses `drilldown2.periods` (same 1–3 range as main drill-down). The "By Product" grouped view shows 1, 2, or 3 bars per row according to `periods.length`.
 
 ### UI
 

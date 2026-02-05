@@ -1,6 +1,6 @@
 /**
- * Grouped bar rows: one row per category (e.g. product), each row has 3 bars (e.g. 3 periods).
- * Used for multi-period drill-down comparison. No third-party chart lib.
+ * Grouped bar rows: one row per category (e.g. product), each row has 1–3 bars (one per period).
+ * Used for multi-period drill-down comparison. Supports 1, 2, or 3 periods. No third-party chart lib.
  */
 
 export interface GroupedBarRow {
