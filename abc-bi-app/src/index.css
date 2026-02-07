@@ -451,3 +451,9 @@ body {
   flex: 1;
   min-width: 0;
 }
+
+/* Customer Drill-down metrics table: emphasize last row (Customer Profitability) */
+.customer-drill-metrics-table .table tbody tr:last-child {
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.04);
+}

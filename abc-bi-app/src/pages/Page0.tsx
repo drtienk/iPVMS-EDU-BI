@@ -1177,13 +1177,30 @@ export function Page0() {
                       { metric: 'COGS', ...Object.fromEntries(customerDrillMetrics.map((m) => [String(m.periodNo), m.cogs])) },
                       { metric: 'Service Cost', ...Object.fromEntries(customerDrillMetrics.map((m) => [String(m.periodNo), m.serviceCost])) },
                       { metric: 'Management Cost', ...Object.fromEntries(customerDrillMetrics.map((m) => [String(m.periodNo), m.managementCost])) },
+                      {
+                        metric: 'Customer Profitability',
+                        ...Object.fromEntries(
+                          customerDrillMetrics.map((m) => [
+                            String(m.periodNo),
+                            m.revenue - m.cogs - m.serviceCost - m.managementCost,
+                          ])
+                        ),
+                      },
                     ];
                     const customerDrillColumns: ColumnDef<Record<string, string | number>, unknown>[] = [
                       { accessorKey: 'metric', header: 'Metric' },
                       ...periodKeys.map((p) => ({
                         accessorKey: p,
                         header: formatMonthMMYYYY(Number(p)),
-                        cell: ({ getValue }: { getValue: () => unknown }) => formatCurrency(Number(getValue() ?? 0)),
+                        cell: ({ getValue, row }: { getValue: () => unknown; row: { original: Record<string, string | number> } }) => {
+                          const value = Number(getValue() ?? 0);
+                          const formatted = formatCurrency(value);
+                          return row.original.metric === 'Customer Profitability' ? (
+                            <span className={value >= 0 ? 'profit-positive' : 'profit-negative'}>{formatted}</span>
+                          ) : (
+                            formatted
+                          );
+                        },
                       })),
                     ];
                     return (
@@ -1201,17 +1218,20 @@ export function Page0() {
                             labelColumnTitle="Metric"
                           />
                         </div>
-                        <DataTable
-                          data={customerDrillData}
-                          columns={customerDrillColumns}
-                          searchable={false}
-                          pageSize={10}
-                          onRowClick={(row) => {
-                            if (String(row.metric) === 'Service Cost') {
-                              setServiceCostDrill({ customerId: customerDrill.customerId, customerName: customerDrill.customerName });
-                            }
-                          }}
-                        />
+                        <div className="customer-drill-metrics-table">
+                          <DataTable
+                            data={customerDrillData}
+                            columns={customerDrillColumns}
+                            searchable={false}
+                            pageSize={10}
+                            sortable={false}
+                            onRowClick={(row) => {
+                              if (String(row.metric) === 'Service Cost') {
+                                setServiceCostDrill({ customerId: customerDrill.customerId, customerName: customerDrill.customerName });
+                              }
+                            }}
+                          />
+                        </div>
                       </>
                     );
                   })()}

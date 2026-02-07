@@ -16,6 +16,8 @@ export interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   searchable?: boolean;
   pageSize?: number;
+  /** When false, column headers are not sortable and row order follows data array. Default true. */
+  sortable?: boolean;
 }
 
 export function DataTable<T>({
@@ -24,6 +26,7 @@ export function DataTable<T>({
   onRowClick,
   searchable = true,
   pageSize = 20,
+  sortable = true,
 }: DataTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
@@ -35,7 +38,7 @@ export function DataTable<T>({
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    ...(sortable ? { getSortedRowModel: getSortedRowModel() } : {}),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     initialState: { pagination: { pageSize } },
@@ -59,14 +62,14 @@ export function DataTable<T>({
               {headerGroup.headers.map((header) => (
                 <th
                   key={header.id}
-                  onClick={header.column.getToggleSortingHandler()}
-                  style={{ width: header.getSize() }}
+                  onClick={sortable ? header.column.getToggleSortingHandler() : undefined}
+                  style={{ width: header.getSize(), cursor: sortable ? 'pointer' : undefined }}
                 >
                   {flexRender(header.column.columnDef.header, header.getContext())}
-                  {{
+                  {sortable && ({
                     asc: ' ↑',
                     desc: ' ↓',
-                  }[header.column.getIsSorted() as string] ?? null}
+                  }[header.column.getIsSorted() as string] ?? null)}
                 </th>
               ))}
             </tr>
