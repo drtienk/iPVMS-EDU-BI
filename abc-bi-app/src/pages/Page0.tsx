@@ -12,6 +12,7 @@ import { toNumber } from '../normalize';
 import type {
   CustomerProductProfitRow,
   CustomerProfitResultRow,
+  CustomerServiceCostRow,
   IncomeStatmentRow,
   ProductProfitResultRow,
 } from '../types';
@@ -129,12 +130,72 @@ function median(sorted: number[]): number {
   return sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!;
 }
 
+/** Build Service Cost breakdown by Activity (Code) from CustomerServiceCost. Group by Code, sum DriverValue (hours) and Amount (cost) per period. */
+function buildServiceCostByActivity(
+  resultsByPeriod: CustomerServiceCostRow[][],
+  selectedPeriods: number[],
+  customerId: string
+): { rows: Record<string, string | number>[]; periodTotals: { periodNo: number; totalCost: number }[] } {
+  const byPeriodCode = new Map<number, Map<string, { hours: number; cost: number }>>();
+  const allCodes = new Set<string>();
+  resultsByPeriod.forEach((rows, i) => {
+    const periodNo = selectedPeriods[i]!;
+    const map = new Map<string, { hours: number; cost: number }>();
+    for (const r of rows) {
+      const key = String(r.customerId ?? r.Customer ?? '').trim() || '(Unknown Customer)';
+      if (key !== customerId) continue;
+      const code = String(r.Code ?? '').trim() || '(Unknown)';
+      const hours = toNumber(r.DriverValue, 0);
+      const cost = toNumber(r.Amount, 0);
+      const prev = map.get(code) ?? { hours: 0, cost: 0 };
+      map.set(code, { hours: prev.hours + hours, cost: prev.cost + cost });
+      allCodes.add(code);
+    }
+    byPeriodCode.set(periodNo, map);
+  });
+  const rows: Record<string, string | number>[] = [];
+  for (const code of Array.from(allCodes).sort()) {
+    const row: Record<string, string | number> = { activity: code };
+    for (const p of selectedPeriods) {
+      const m = byPeriodCode.get(p)?.get(code) ?? { hours: 0, cost: 0 };
+      row[`${p}_hours`] = m.hours;
+      row[`${p}_cost`] = m.cost;
+    }
+    rows.push(row);
+  }
+  const periodTotals = selectedPeriods.map((periodNo) => {
+    const totalCost = rows.reduce(
+      (s, row) => s + Number(row[`${periodNo}_cost`] ?? 0),
+      0
+    );
+    return { periodNo, totalCost };
+  });
+  return { rows, periodTotals };
+}
+
+/**
+ * Build customerId -> Customer Name map from CustomerProfitResult rows (same source as By Customer).
+ * ID is used for grouping; name is for display only.
+ */
+function buildCustomerNameMap(rowsByPeriod: CustomerProfitResultRow[][]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const rows of rowsByPeriod) {
+    for (const r of rows) {
+      const key = String(r.customerId ?? r.CustomerID ?? '').trim() || '(Unknown Customer)';
+      const name = String(r.Customer ?? '').trim();
+      if (name && !map.has(key)) map.set(key, name);
+    }
+  }
+  return map;
+}
+
 /** Build first-layer By Customer grouped rows from CustomerProfitResult per period. Same source as Total Profitability. */
 function buildDrilldownByCustomer(
   resultsByPeriod: CustomerProfitResultRow[][],
   selectedPeriods: number[],
   topN: number
 ): { rows: GroupedBarRow[]; monthTotals: { period: number; total: number }[] } {
+  const customerNameMap = buildCustomerNameMap(resultsByPeriod);
   const byPeriod = new Map<number, Map<string, number>>();
   const allCustomerKeys = new Set<string>();
   resultsByPeriod.forEach((rows, i) => {
@@ -162,10 +223,12 @@ function buildDrilldownByCustomer(
       x: p,
       y: byPeriod.get(p)?.get(key) ?? 0,
     }));
+    const displayLabel = customerNameMap.get(key) ?? key ?? '(Unknown Customer)';
     rows.push({
-      group: key,
+      group: displayLabel,
       values,
       total: values.reduce((s, v) => s + v.y, 0),
+      dataKey: key,
     });
   }
   const othersSum = customerTotals.slice(topN).reduce((s, x) => s + x.sum, 0);
@@ -215,6 +278,13 @@ export function Page0() {
   const [salesActivityCenterDataAvailable, setSalesActivityCenterDataAvailable] = useState(false);
   const [groupedCustomerRows, setGroupedCustomerRows] = useState<GroupedBarRow[]>([]);
   const [customerMonthTotals, setCustomerMonthTotals] = useState<{ period: number; total: number }[]>([]);
+  const [customerDrill, setCustomerDrill] = useState<{ customerId: string; customerName: string } | null>(null);
+  const [customerDrillMetrics, setCustomerDrillMetrics] = useState<{ periodNo: number; revenue: number; cogs: number; serviceCost: number; managementCost: number }[]>([]);
+  const [customerDrillLoading, setCustomerDrillLoading] = useState(false);
+  const [serviceCostDrill, setServiceCostDrill] = useState<{ customerId: string; customerName: string } | null>(null);
+  const [serviceCostDrillRows, setServiceCostDrillRows] = useState<Record<string, string | number>[]>([]);
+  const [serviceCostDrillPeriodTotals, setServiceCostDrillPeriodTotals] = useState<{ periodNo: number; totalCost: number }[]>([]);
+  const [serviceCostDrillLoading, setServiceCostDrillLoading] = useState(false);
   const [drilldown2, setDrilldown2] = useState<Drilldown2State>(null);
   const [drilldown2Mode, setDrilldown2Mode] = useState<'product' | 'customer'>('product');
   const [drilldown2ProductRows, setDrilldown2ProductRows] = useState<GroupedBarRow[]>([]);
@@ -262,6 +332,11 @@ export function Page0() {
       setSalesActivityCenterDataAvailable(false);
       setGroupedCustomerRows([]);
       setCustomerMonthTotals([]);
+      setCustomerDrill(null);
+      setCustomerDrillMetrics([]);
+      setServiceCostDrill(null);
+      setServiceCostDrillRows([]);
+      setServiceCostDrillPeriodTotals([]);
       setDrilldown2(null);
       setDrilldown2Mode('product');
       setDrilldown2ProductRows([]);
@@ -504,6 +579,82 @@ export function Page0() {
       }
     });
   }, [drilldownMode, customerMonthTotals, aggregates]);
+
+  useEffect(() => {
+    if (customerDrill == null || selectedPeriods.length === 0) {
+      setCustomerDrillMetrics([]);
+      return;
+    }
+    let cancelled = false;
+    setCustomerDrillLoading(true);
+    const customerId = customerDrill.customerId;
+    Promise.all(selectedPeriods.map((p) => getTable<CustomerProfitResultRow>(p, 'CustomerProfitResult')))
+      .then((results) => {
+        if (cancelled) return;
+        const metrics = results.map((rows, i) => {
+          const periodNo = selectedPeriods[i]!;
+          const matching = rows.filter(
+            (r) => (String(r.customerId ?? r.CustomerID ?? '').trim() || '(Unknown Customer)') === customerId
+          );
+          const revenue = matching.reduce((s, r) => s + toNumber(r.Price, 0), 0);
+          const cogs = matching.reduce((s, r) => s + toNumber(r.ManufactureCost, 0), 0);
+          const serviceCost = matching.reduce((s, r) => s + toNumber(r.ServiceCost, 0), 0);
+          const managementCost = matching.reduce((s, r) => s + toNumber(r.ManagementCost, 0), 0);
+          return { periodNo, revenue, cogs, serviceCost, managementCost };
+        });
+        setCustomerDrillMetrics(metrics);
+      })
+      .catch(() => {
+        if (!cancelled) setCustomerDrillMetrics([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCustomerDrillLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [customerDrill, selectedPeriods]);
+
+  useEffect(() => {
+    if (serviceCostDrill == null || selectedPeriods.length === 0) {
+      setServiceCostDrillRows([]);
+      setServiceCostDrillPeriodTotals([]);
+      return;
+    }
+    let cancelled = false;
+    setServiceCostDrillLoading(true);
+    const customerId = serviceCostDrill.customerId;
+    Promise.all(selectedPeriods.map((p) => getTable<CustomerServiceCostRow>(p, 'CustomerServiceCost')))
+      .then((results) => {
+        if (cancelled) return;
+        const { rows, periodTotals } = buildServiceCostByActivity(results, selectedPeriods, customerId);
+        setServiceCostDrillRows(rows);
+        setServiceCostDrillPeriodTotals(periodTotals);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setServiceCostDrillRows([]);
+          setServiceCostDrillPeriodTotals([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setServiceCostDrillLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [serviceCostDrill, selectedPeriods]);
+
+  useEffect(() => {
+    if (serviceCostDrill == null || customerDrill == null || serviceCostDrill.customerId !== customerDrill.customerId) return;
+    if (serviceCostDrillPeriodTotals.length === 0 || customerDrillMetrics.length === 0) return;
+    serviceCostDrillPeriodTotals.forEach(({ periodNo, totalCost }, i) => {
+      const expected = customerDrillMetrics.find((m) => m.periodNo === periodNo)?.serviceCost ?? 0;
+      if (Math.abs(totalCost - expected) > 1e-6) {
+        console.warn('[Service Cost Drill] period total cost !== CustomerProfitResult.ServiceCost', { periodNo, totalCost, expected });
+      }
+    });
+  }, [serviceCostDrill, customerDrill, serviceCostDrillPeriodTotals, customerDrillMetrics]);
 
   useEffect(() => {
     if (drilldown2 == null || drilldown2.periods.length === 0) {
@@ -949,9 +1100,129 @@ export function Page0() {
                   labelWidth={140}
                   monthTotals={customerMonthTotals}
                   labelColumnTitle="Customer"
+                  onBarClick={({ groupLabel, dataKey }) => {
+                    if (dataKey) setCustomerDrill({ customerId: dataKey, customerName: groupLabel });
+                  }}
                 />
               ) : (
                 <p className="trend-panel-message">No customer data for selected period(s).</p>
+              )}
+              {customerDrill != null && (
+                <div className="drilldown-2-panel" style={{ marginTop: 16, padding: 16, border: '1px solid var(--border)', borderRadius: 8 }}>
+                  <div className="drilldown-2-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                    <div>
+                      <h4 className="drilldown-2-title" style={{ margin: 0, fontSize: 15 }}>
+                        Customer: {customerDrill.customerName}
+                      </h4>
+                      <p className="drilldown-2-periods" style={{ margin: '4px 0 0', fontSize: 12, color: '#555' }}>
+                        Period: {selectedPeriods.length === 1
+                          ? String(selectedPeriods[0])
+                          : `${selectedPeriods[0]}–${selectedPeriods[selectedPeriods.length - 1]}`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => {
+                        setCustomerDrill(null);
+                        setServiceCostDrill(null);
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                  {customerDrillLoading && <p className="trend-panel-message">Loading…</p>}
+                  {!customerDrillLoading && customerDrillMetrics.length > 0 && (() => {
+                    const periodKeys = customerDrillMetrics.map((m) => String(m.periodNo));
+                    const customerDrillData: Record<string, string | number>[] = [
+                      { metric: 'Customer Revenue', ...Object.fromEntries(customerDrillMetrics.map((m) => [String(m.periodNo), m.revenue])) },
+                      { metric: 'COGS', ...Object.fromEntries(customerDrillMetrics.map((m) => [String(m.periodNo), m.cogs])) },
+                      { metric: 'Service Cost', ...Object.fromEntries(customerDrillMetrics.map((m) => [String(m.periodNo), m.serviceCost])) },
+                      { metric: 'Management Cost', ...Object.fromEntries(customerDrillMetrics.map((m) => [String(m.periodNo), m.managementCost])) },
+                    ];
+                    const customerDrillColumns: ColumnDef<Record<string, string | number>, unknown>[] = [
+                      { accessorKey: 'metric', header: 'Metric' },
+                      ...periodKeys.map((p) => ({
+                        accessorKey: p,
+                        header: formatMonthMMYYYY(Number(p)),
+                        cell: ({ getValue }: { getValue: () => unknown }) => formatCurrency(Number(getValue() ?? 0)),
+                      })),
+                    ];
+                    return (
+                      <DataTable
+                        data={customerDrillData}
+                        columns={customerDrillColumns}
+                        searchable={false}
+                        pageSize={10}
+                        onRowClick={(row) => {
+                          if (String(row.metric) === 'Service Cost') {
+                            setServiceCostDrill({ customerId: customerDrill.customerId, customerName: customerDrill.customerName });
+                          }
+                        }}
+                      />
+                    );
+                  })()}
+                  {!customerDrillLoading && customerDrillMetrics.length === 0 && (
+                    <p className="trend-panel-message">No metrics for this customer in the selected period(s).</p>
+                  )}
+                </div>
+              )}
+              {serviceCostDrill != null && (
+                <div className="drilldown-2-panel" style={{ marginTop: 16, padding: 16, border: '1px solid var(--border)', borderRadius: 8 }}>
+                  <div className="drilldown-2-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                    <div>
+                      <h4 className="drilldown-2-title" style={{ margin: 0, fontSize: 15 }}>
+                        Service Cost Breakdown
+                      </h4>
+                      <p className="drilldown-2-periods" style={{ margin: '4px 0 0', fontSize: 12, color: '#555' }}>
+                        Customer: {serviceCostDrill.customerName} · Period: {selectedPeriods.length === 1
+                          ? String(selectedPeriods[0])
+                          : `${selectedPeriods[0]}–${selectedPeriods[selectedPeriods.length - 1]}`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => setServiceCostDrill(null)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                  {serviceCostDrillLoading && <p className="trend-panel-message">Loading…</p>}
+                  {!serviceCostDrillLoading && serviceCostDrillPeriodTotals.length > 0 && (
+                    <p style={{ marginBottom: 8, fontSize: 12, color: '#555' }}>
+                      Total Cost by period: {serviceCostDrillPeriodTotals.map(({ periodNo, totalCost }) => `${formatMonthMMYYYY(periodNo)}: ${formatCurrency(totalCost)}`).join(' · ')}
+                    </p>
+                  )}
+                  {!serviceCostDrillLoading && serviceCostDrillRows.length > 0 && (() => {
+                    const cols: ColumnDef<Record<string, string | number>, unknown>[] = [
+                      { accessorKey: 'activity', header: 'Activity (Code)' },
+                    ];
+                    for (const p of selectedPeriods) {
+                      cols.push({
+                        accessorKey: `${p}_hours`,
+                        header: `${formatMonthMMYYYY(p)} Hours`,
+                        cell: ({ getValue }: { getValue: () => unknown }) => Number(getValue() ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                      });
+                      cols.push({
+                        accessorKey: `${p}_cost`,
+                        header: `${formatMonthMMYYYY(p)} Cost`,
+                        cell: ({ getValue }: { getValue: () => unknown }) => formatCurrency(Number(getValue() ?? 0)),
+                      });
+                    }
+                    return (
+                      <DataTable
+                        data={serviceCostDrillRows}
+                        columns={cols}
+                        searchable={false}
+                        pageSize={10}
+                      />
+                    );
+                  })()}
+                  {!serviceCostDrillLoading && serviceCostDrillRows.length === 0 && serviceCostDrillPeriodTotals.length === 0 && (
+                    <p className="trend-panel-message">No Service Cost detail for this customer in the selected period(s).</p>
+                  )}
+                </div>
               )}
             </>
           )}

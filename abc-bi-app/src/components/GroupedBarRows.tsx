@@ -8,6 +8,8 @@ export interface GroupedBarRow {
   values: { x: number | string; y: number }[];
   /** Optional sum of values for this group (e.g. total profitability). Shown in right column when set. */
   total?: number;
+  /** Optional key for click callback (e.g. customerId when group is display name). Passed to onBarClick as dataKey. */
+  dataKey?: string;
 }
 
 export interface MonthTotal {
@@ -28,8 +30,8 @@ export interface GroupedBarRowsProps {
   labelWidth?: number;
   /** When provided, show header row with month labels and column totals; reserve right column for row total */
   monthTotals?: MonthTotal[];
-  /** When provided, each bar is clickable and invokes this with group label, period (x), and value (y) */
-  onBarClick?: (args: { groupLabel: string; period: number; value: number }) => void;
+  /** When provided, each bar is clickable and invokes this with group label, period (x), value (y), and optional dataKey from row */
+  onBarClick?: (args: { groupLabel: string; period: number; value: number; dataKey?: string }) => void;
   /** Optional label for the first column when monthTotals is shown (e.g. "Product", "Customer") */
   labelColumnTitle?: string;
 }
@@ -200,6 +202,7 @@ export function GroupedBarRows({
                             groupLabel: row.group,
                             period: Number(v.x),
                             value: yVal,
+                            dataKey: row.dataKey,
                           });
                         }
                       }}
