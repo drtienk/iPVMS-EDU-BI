@@ -389,6 +389,10 @@ body {
   cursor: not-allowed;
 }
 
+.drill-chart {
+  margin-bottom: 12px;
+}
+
 .drilldown-summary {
   display: flex;
   flex-wrap: wrap;

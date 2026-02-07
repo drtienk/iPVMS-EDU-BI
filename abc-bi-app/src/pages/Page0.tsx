@@ -25,6 +25,8 @@ const DRILLDOWN_TOP_SALES_ACTIVITY_CENTERS = 10;
 const DRILLDOWN_TOP_CUSTOMERS = 10;
 /** First-layer By Customer: show top N customers by (latest period) profit + Others */
 const DRILLDOWN_TOP_CUSTOMERS_LAYER1 = 20;
+/** Service Cost Breakdown chart: show top N activities by latest period cost */
+const SERVICE_COST_CHART_TOP_N = 12;
 
 type Drilldown2State = null | {
   salesActivityCenterKey: string;
@@ -1134,6 +1136,34 @@ export function Page0() {
                   {customerDrillLoading && <p className="trend-panel-message">Loading…</p>}
                   {!customerDrillLoading && customerDrillMetrics.length > 0 && (() => {
                     const periodKeys = customerDrillMetrics.map((m) => String(m.periodNo));
+                    const customerMetricChartRows: GroupedBarRow[] = [
+                      {
+                        group: 'Customer Revenue',
+                        values: customerDrillMetrics.map((m) => ({ x: m.periodNo, y: m.revenue })),
+                        total: customerDrillMetrics.reduce((s, m) => s + m.revenue, 0),
+                      },
+                      {
+                        group: 'COGS',
+                        values: customerDrillMetrics.map((m) => ({ x: m.periodNo, y: m.cogs })),
+                        total: customerDrillMetrics.reduce((s, m) => s + m.cogs, 0),
+                      },
+                      {
+                        group: 'Service Cost',
+                        values: customerDrillMetrics.map((m) => ({ x: m.periodNo, y: m.serviceCost })),
+                        total: customerDrillMetrics.reduce((s, m) => s + m.serviceCost, 0),
+                      },
+                      {
+                        group: 'Management Cost',
+                        values: customerDrillMetrics.map((m) => ({ x: m.periodNo, y: m.managementCost })),
+                        total: customerDrillMetrics.reduce((s, m) => s + m.managementCost, 0),
+                      },
+                    ];
+                    const customerMetricMonthTotals = selectedPeriods.map((periodNo) => ({
+                      period: periodNo,
+                      total: customerDrillMetrics
+                        .filter((m) => m.periodNo === periodNo)
+                        .reduce((s, m) => s + m.revenue + m.cogs + m.serviceCost + m.managementCost, 0),
+                    }));
                     const customerDrillData: Record<string, string | number>[] = [
                       { metric: 'Customer Revenue', ...Object.fromEntries(customerDrillMetrics.map((m) => [String(m.periodNo), m.revenue])) },
                       { metric: 'COGS', ...Object.fromEntries(customerDrillMetrics.map((m) => [String(m.periodNo), m.cogs])) },
@@ -1149,17 +1179,32 @@ export function Page0() {
                       })),
                     ];
                     return (
-                      <DataTable
-                        data={customerDrillData}
-                        columns={customerDrillColumns}
-                        searchable={false}
-                        pageSize={10}
-                        onRowClick={(row) => {
-                          if (String(row.metric) === 'Service Cost') {
-                            setServiceCostDrill({ customerId: customerDrill.customerId, customerName: customerDrill.customerName });
-                          }
-                        }}
-                      />
+                      <>
+                        <div className="drill-chart" style={{ marginBottom: 16 }}>
+                          <h5 style={{ margin: '0 0 8px', fontSize: 13, color: '#333' }}>Customer Metrics (Bar Chart)</h5>
+                          <GroupedBarRows
+                            rows={customerMetricChartRows}
+                            formatPeriod={(x) => formatMonthMMYYYY(x)}
+                            barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
+                            barLabelFormatter={(y) => y.toLocaleString('en-US')}
+                            width={560}
+                            labelWidth={160}
+                            monthTotals={customerMetricMonthTotals}
+                            labelColumnTitle="Metric"
+                          />
+                        </div>
+                        <DataTable
+                          data={customerDrillData}
+                          columns={customerDrillColumns}
+                          searchable={false}
+                          pageSize={10}
+                          onRowClick={(row) => {
+                            if (String(row.metric) === 'Service Cost') {
+                              setServiceCostDrill({ customerId: customerDrill.customerId, customerName: customerDrill.customerName });
+                            }
+                          }}
+                        />
+                      </>
                     );
                   })()}
                   {!customerDrillLoading && customerDrillMetrics.length === 0 && (
@@ -1195,6 +1240,23 @@ export function Page0() {
                     </p>
                   )}
                   {!serviceCostDrillLoading && serviceCostDrillRows.length > 0 && (() => {
+                    const lastPeriod = selectedPeriods[selectedPeriods.length - 1];
+                    const sortedByLatestCost = [...serviceCostDrillRows].sort(
+                      (a, b) => Number(b[`${lastPeriod}_cost`] ?? 0) - Number(a[`${lastPeriod}_cost`] ?? 0)
+                    );
+                    const topRows = sortedByLatestCost.slice(0, SERVICE_COST_CHART_TOP_N);
+                    const serviceCostChartRows: GroupedBarRow[] = topRows.map((row) => {
+                      const values = selectedPeriods.map((p) => ({
+                        x: p,
+                        y: Number(row[`${p}_cost`] ?? 0),
+                      }));
+                      return {
+                        group: String(row.activity),
+                        values,
+                        total: values.reduce((s, v) => s + v.y, 0),
+                      };
+                    });
+                    const serviceCostChartMonthTotals = serviceCostDrillPeriodTotals;
                     const cols: ColumnDef<Record<string, string | number>, unknown>[] = [
                       { accessorKey: 'activity', header: 'Activity (Code)' },
                     ];
@@ -1211,12 +1273,32 @@ export function Page0() {
                       });
                     }
                     return (
-                      <DataTable
-                        data={serviceCostDrillRows}
-                        columns={cols}
-                        searchable={false}
-                        pageSize={10}
-                      />
+                      <>
+                        <div className="drill-chart" style={{ marginBottom: 16 }}>
+                          <h5 style={{ margin: '0 0 8px', fontSize: 13, color: '#333' }}>Service Cost by Activity (Bar Chart)</h5>
+                          <p style={{ margin: '0 0 8px', fontSize: 11, color: '#666' }}>Chart shows Top {SERVICE_COST_CHART_TOP_N} activities by latest period cost.</p>
+                          {serviceCostChartRows.length > 0 ? (
+                            <GroupedBarRows
+                              rows={serviceCostChartRows}
+                              formatPeriod={(x) => formatMonthMMYYYY(x)}
+                              barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
+                              barLabelFormatter={(y) => y.toLocaleString('en-US')}
+                              width={560}
+                              labelWidth={160}
+                              monthTotals={serviceCostChartMonthTotals}
+                              labelColumnTitle="Activity (Code)"
+                            />
+                          ) : (
+                            <p className="trend-panel-message">No activity cost data.</p>
+                          )}
+                        </div>
+                        <DataTable
+                          data={serviceCostDrillRows}
+                          columns={cols}
+                          searchable={false}
+                          pageSize={10}
+                        />
+                      </>
                     );
                   })()}
                   {!serviceCostDrillLoading && serviceCostDrillRows.length === 0 && serviceCostDrillPeriodTotals.length === 0 && (
