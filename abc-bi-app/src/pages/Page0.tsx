@@ -22,6 +22,8 @@ const DEFAULT_TOP_N = 20;
 const DRILLDOWN_TOP_PRODUCTS = 10;
 const DRILLDOWN_TOP_SALES_ACTIVITY_CENTERS = 10;
 const DRILLDOWN_TOP_CUSTOMERS = 10;
+/** First-layer By Customer: show top N customers by (latest period) profit + Others */
+const DRILLDOWN_TOP_CUSTOMERS_LAYER1 = 20;
 
 type Drilldown2State = null | {
   salesActivityCenterKey: string;
@@ -127,6 +129,66 @@ function median(sorted: number[]): number {
   return sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!;
 }
 
+/** Build first-layer By Customer grouped rows from CustomerProfitResult per period. Same source as Total Profitability. */
+function buildDrilldownByCustomer(
+  resultsByPeriod: CustomerProfitResultRow[][],
+  selectedPeriods: number[],
+  topN: number
+): { rows: GroupedBarRow[]; monthTotals: { period: number; total: number }[] } {
+  const byPeriod = new Map<number, Map<string, number>>();
+  const allCustomerKeys = new Set<string>();
+  resultsByPeriod.forEach((rows, i) => {
+    const periodNo = selectedPeriods[i]!;
+    const map = new Map<string, number>();
+    for (const r of rows) {
+      const key = String(r.customerId ?? r.CustomerID ?? '').trim() || '(Unknown Customer)';
+      const profit = toNumber(r.CustomerProfit, 0);
+      map.set(key, (map.get(key) ?? 0) + profit);
+      allCustomerKeys.add(key);
+    }
+    byPeriod.set(periodNo, map);
+  });
+  const lastPeriod = selectedPeriods[selectedPeriods.length - 1];
+  const customerTotals = Array.from(allCustomerKeys).map((key) => ({
+    key,
+    sum: selectedPeriods.reduce((s, p) => s + Math.abs(byPeriod.get(p)?.get(key) ?? 0), 0),
+    lastPeriodProfit: byPeriod.get(lastPeriod ?? 0)?.get(key) ?? 0,
+  }));
+  customerTotals.sort((a, b) => b.lastPeriodProfit - a.lastPeriodProfit);
+  const topKeys = new Set(customerTotals.slice(0, topN).map((x) => x.key));
+  const rows: GroupedBarRow[] = [];
+  for (const { key } of customerTotals.slice(0, topN)) {
+    const values = selectedPeriods.map((p) => ({
+      x: p,
+      y: byPeriod.get(p)?.get(key) ?? 0,
+    }));
+    rows.push({
+      group: key,
+      values,
+      total: values.reduce((s, v) => s + v.y, 0),
+    });
+  }
+  const othersSum = customerTotals.slice(topN).reduce((s, x) => s + x.sum, 0);
+  if (othersSum !== 0 || customerTotals.length > topN) {
+    const othersValues = selectedPeriods.map((p) => ({
+      x: p,
+      y: Array.from(allCustomerKeys)
+        .filter((k) => !topKeys.has(k))
+        .reduce((s, k) => s + (byPeriod.get(p)?.get(k) ?? 0), 0),
+    }));
+    rows.push({
+      group: 'Others',
+      values: othersValues,
+      total: othersValues.reduce((s, v) => s + v.y, 0),
+    });
+  }
+  const monthTotals = selectedPeriods.map((period) => ({
+    period,
+    total: rows.reduce((s, row) => s + (row.values.find((v) => v.x === period)?.y ?? 0), 0),
+  }));
+  return { rows, monthTotals };
+}
+
 export function Page0() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -140,7 +202,7 @@ export function Page0() {
 
   const [selectedPeriodNo, setSelectedPeriodNo] = useState<number | null>(null);
   const [selectedPeriods, setSelectedPeriods] = useState<number[]>([]);
-  const [drilldownMode, setDrilldownMode] = useState<'ranked' | 'hist' | 'product' | 'salesActivityCenter'>('ranked');
+  const [drilldownMode, setDrilldownMode] = useState<'ranked' | 'hist' | 'product' | 'salesActivityCenter' | 'customer'>('ranked');
   const [topN, setTopN] = useState(DEFAULT_TOP_N);
   const [showAllRanked, setShowAllRanked] = useState(false);
   const [drilldownRows, setDrilldownRows] = useState<CustomerProfitResultRow[]>([]);
@@ -151,6 +213,8 @@ export function Page0() {
   const [groupedSalesActivityCenterRows, setGroupedSalesActivityCenterRows] = useState<GroupedBarRow[]>([]);
   const [salesActivityCenterMonthTotals, setSalesActivityCenterMonthTotals] = useState<{ period: number; total: number }[]>([]);
   const [salesActivityCenterDataAvailable, setSalesActivityCenterDataAvailable] = useState(false);
+  const [groupedCustomerRows, setGroupedCustomerRows] = useState<GroupedBarRow[]>([]);
+  const [customerMonthTotals, setCustomerMonthTotals] = useState<{ period: number; total: number }[]>([]);
   const [drilldown2, setDrilldown2] = useState<Drilldown2State>(null);
   const [drilldown2Mode, setDrilldown2Mode] = useState<'product' | 'customer'>('product');
   const [drilldown2ProductRows, setDrilldown2ProductRows] = useState<GroupedBarRow[]>([]);
@@ -196,6 +260,8 @@ export function Page0() {
       setGroupedSalesActivityCenterRows([]);
       setSalesActivityCenterMonthTotals([]);
       setSalesActivityCenterDataAvailable(false);
+      setGroupedCustomerRows([]);
+      setCustomerMonthTotals([]);
       setDrilldown2(null);
       setDrilldown2Mode('product');
       setDrilldown2ProductRows([]);
@@ -399,6 +465,45 @@ export function Page0() {
       cancelled = true;
     };
   }, [selectedPeriods]);
+
+  useEffect(() => {
+    if (selectedPeriods.length === 0) {
+      setGroupedCustomerRows([]);
+      setCustomerMonthTotals([]);
+      return;
+    }
+    let cancelled = false;
+    Promise.all(selectedPeriods.map((p) => getTable<CustomerProfitResultRow>(p, 'CustomerProfitResult')))
+      .then((results) => {
+        if (cancelled) return;
+        const { rows, monthTotals } = buildDrilldownByCustomer(
+          results,
+          selectedPeriods,
+          DRILLDOWN_TOP_CUSTOMERS_LAYER1
+        );
+        setGroupedCustomerRows(rows);
+        setCustomerMonthTotals(monthTotals);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setGroupedCustomerRows([]);
+          setCustomerMonthTotals([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPeriods]);
+
+  useEffect(() => {
+    if (drilldownMode !== 'customer' || customerMonthTotals.length === 0 || aggregates.length === 0) return;
+    customerMonthTotals.forEach(({ period, total }) => {
+      const expected = aggregates.find((a) => a.periodNo === period)?.totalProfitability ?? 0;
+      if (Math.abs(total - expected) > 1e-6) {
+        console.warn('[Drill-down By Customer] period total !== Total Profitability', { period, total, expected });
+      }
+    });
+  }, [drilldownMode, customerMonthTotals, aggregates]);
 
   useEffect(() => {
     if (drilldown2 == null || drilldown2.periods.length === 0) {
@@ -711,6 +816,13 @@ export function Page0() {
           <div className="drilldown-tabs">
             <button
               type="button"
+              className={`drilldown-tab ${drilldownMode === 'customer' ? 'active' : ''}`}
+              onClick={() => setDrilldownMode('customer')}
+            >
+              By Customer
+            </button>
+            <button
+              type="button"
               className={`drilldown-tab ${drilldownMode === 'product' ? 'active' : ''} ${!productDataAvailable ? 'disabled' : ''}`}
               onClick={() => productDataAvailable && setDrilldownMode('product')}
               disabled={!productDataAvailable}
@@ -821,6 +933,25 @@ export function Page0() {
                 />
               ) : (
                 <p className="trend-panel-message">No data for histogram.</p>
+              )}
+            </>
+          )}
+
+          {!loadingDrilldown && !errorDrilldown && drilldownMode === 'customer' && (
+            <>
+              {groupedCustomerRows.length > 0 ? (
+                <GroupedBarRows
+                  rows={groupedCustomerRows}
+                  formatPeriod={(x) => formatMonthMMYYYY(x)}
+                  barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
+                  barLabelFormatter={(y) => y.toLocaleString('en-US')}
+                  width={560}
+                  labelWidth={140}
+                  monthTotals={customerMonthTotals}
+                  labelColumnTitle="Customer"
+                />
+              ) : (
+                <p className="trend-panel-message">No customer data for selected period(s).</p>
               )}
             </>
           )}
