@@ -21,6 +21,7 @@ const DRILLDOWN_BINS = 10;
 const DEFAULT_TOP_N = 20;
 const DRILLDOWN_TOP_PRODUCTS = 10;
 const DRILLDOWN_TOP_SALES_ACTIVITY_CENTERS = 10;
+const DRILLDOWN_TOP_CUSTOMERS = 10;
 
 type Drilldown2State = null | {
   salesActivityCenterKey: string;
@@ -151,7 +152,12 @@ export function Page0() {
   const [salesActivityCenterMonthTotals, setSalesActivityCenterMonthTotals] = useState<{ period: number; total: number }[]>([]);
   const [salesActivityCenterDataAvailable, setSalesActivityCenterDataAvailable] = useState(false);
   const [drilldown2, setDrilldown2] = useState<Drilldown2State>(null);
+  const [drilldown2Mode, setDrilldown2Mode] = useState<'product' | 'customer'>('product');
   const [drilldown2ProductRows, setDrilldown2ProductRows] = useState<GroupedBarRow[]>([]);
+  const [drilldown2CustomerRows, setDrilldown2CustomerRows] = useState<GroupedBarRow[]>([]);
+  const [drilldown2ProductMonthTotals, setDrilldown2ProductMonthTotals] = useState<{ period: number; total: number }[]>([]);
+  const [drilldown2CustomerMonthTotals, setDrilldown2CustomerMonthTotals] = useState<{ period: number; total: number }[]>([]);
+  const [drilldown2Total, setDrilldown2Total] = useState<number | null>(null);
   const [drilldown2Loading, setDrilldown2Loading] = useState(false);
   const [drilldown2Message, setDrilldown2Message] = useState<string | null>(null);
   const [loadingDrilldown, setLoadingDrilldown] = useState(false);
@@ -191,7 +197,12 @@ export function Page0() {
       setSalesActivityCenterMonthTotals([]);
       setSalesActivityCenterDataAvailable(false);
       setDrilldown2(null);
+      setDrilldown2Mode('product');
       setDrilldown2ProductRows([]);
+      setDrilldown2CustomerRows([]);
+      setDrilldown2ProductMonthTotals([]);
+      setDrilldown2CustomerMonthTotals([]);
+      setDrilldown2Total(null);
       setDrilldown2Message(null);
       setErrorDrilldown(null);
       return;
@@ -392,6 +403,10 @@ export function Page0() {
   useEffect(() => {
     if (drilldown2 == null || drilldown2.periods.length === 0) {
       setDrilldown2ProductRows([]);
+      setDrilldown2CustomerRows([]);
+      setDrilldown2ProductMonthTotals([]);
+      setDrilldown2CustomerMonthTotals([]);
+      setDrilldown2Total(null);
       setDrilldown2Message(null);
       return;
     }
@@ -402,23 +417,34 @@ export function Page0() {
     Promise.all(drilldown2.periods.map((p) => getTable<CustomerProductProfitRow>(p, 'CustomerProductProfit')))
       .then((results) => {
         if (cancelled) return;
-        const byPeriod = new Map<number, Map<string, number>>();
+        const byPeriodProduct = new Map<number, Map<string, number>>();
+        const byPeriodCustomer = new Map<number, Map<string, number>>();
         const allProducts = new Set<string>();
+        const allCustomers = new Set<string>();
         results.forEach((rows, i) => {
           const periodNo = drilldown2.periods[i]!;
-          const map = new Map<string, number>();
+          const mapP = new Map<string, number>();
+          const mapC = new Map<string, number>();
           for (const r of rows) {
             const sac = String(r.SalesActivityCenter ?? '').trim() || '(Unknown)';
             if (sac !== centerKey) continue;
-            const name = String(r.Product ?? '').trim() || '(Unknown)';
             const profit = toNumber(r.NetIncome, 0);
-            map.set(name, (map.get(name) ?? 0) + profit);
-            allProducts.add(name);
+            const productName = String(r.Product ?? '').trim() || '(Unknown)';
+            mapP.set(productName, (mapP.get(productName) ?? 0) + profit);
+            allProducts.add(productName);
+            const customerLabel = String(r.Customer ?? '').trim() || '(Unknown Customer)';
+            mapC.set(customerLabel, (mapC.get(customerLabel) ?? 0) + profit);
+            allCustomers.add(customerLabel);
           }
-          byPeriod.set(periodNo, map);
+          byPeriodProduct.set(periodNo, mapP);
+          byPeriodCustomer.set(periodNo, mapC);
         });
         if (allProducts.size === 0) {
           setDrilldown2ProductRows([]);
+          setDrilldown2CustomerRows([]);
+          setDrilldown2ProductMonthTotals([]);
+          setDrilldown2CustomerMonthTotals([]);
+          setDrilldown2Total(null);
           setDrilldown2Message(
             'By Product drill-down requires customer-product-profit data linked to Sales Activity Center (not available in current dataset).'
           );
@@ -427,19 +453,19 @@ export function Page0() {
         const productTotals = Array.from(allProducts).map((name) => ({
           name,
           sum: drilldown2.periods.reduce(
-            (s, p) => s + Math.abs(byPeriod.get(p)?.get(name) ?? 0),
+            (s, p) => s + Math.abs(byPeriodProduct.get(p)?.get(name) ?? 0),
             0
           ),
         }));
         productTotals.sort((a, b) => b.sum - a.sum);
-        const topNames = new Set(productTotals.slice(0, DRILLDOWN_TOP_PRODUCTS).map((x) => x.name));
-        const rows: GroupedBarRow[] = [];
+        const topProductNames = new Set(productTotals.slice(0, DRILLDOWN_TOP_PRODUCTS).map((x) => x.name));
+        const productRows: GroupedBarRow[] = [];
         for (const { name } of productTotals.slice(0, DRILLDOWN_TOP_PRODUCTS)) {
           const values = drilldown2.periods.map((p) => ({
             x: p,
-            y: byPeriod.get(p)?.get(name) ?? 0,
+            y: byPeriodProduct.get(p)?.get(name) ?? 0,
           }));
-          rows.push({
+          productRows.push({
             group: name,
             values,
             total: values.reduce((s, v) => s + v.y, 0),
@@ -450,20 +476,77 @@ export function Page0() {
           const othersValues = drilldown2.periods.map((p) => ({
             x: p,
             y: Array.from(allProducts)
-              .filter((n) => !topNames.has(n))
-              .reduce((s, n) => s + (byPeriod.get(p)?.get(n) ?? 0), 0),
+              .filter((n) => !topProductNames.has(n))
+              .reduce((s, n) => s + (byPeriodProduct.get(p)?.get(n) ?? 0), 0),
           }));
-          rows.push({
+          productRows.push({
             group: 'Others',
             values: othersValues,
             total: othersValues.reduce((s, v) => s + v.y, 0),
           });
         }
-        setDrilldown2ProductRows(rows);
+        const productMonthTotals = drilldown2.periods.map((period) => ({
+          period,
+          total: productRows.reduce((s, row) => s + (row.values.find((v) => v.x === period)?.y ?? 0), 0),
+        }));
+        setDrilldown2ProductRows(productRows);
+        setDrilldown2ProductMonthTotals(productMonthTotals);
+        const panelTotal = productRows.reduce((s, r) => s + (r.total ?? 0), 0);
+        setDrilldown2Total(panelTotal);
+
+        const customerTotals = Array.from(allCustomers).map((label) => ({
+          label,
+          sum: drilldown2.periods.reduce(
+            (s, p) => s + Math.abs(byPeriodCustomer.get(p)?.get(label) ?? 0),
+            0
+          ),
+        }));
+        customerTotals.sort((a, b) => b.sum - a.sum);
+        const topCustomerLabels = new Set(customerTotals.slice(0, DRILLDOWN_TOP_CUSTOMERS).map((x) => x.label));
+        const customerRows: GroupedBarRow[] = [];
+        for (const { label } of customerTotals.slice(0, DRILLDOWN_TOP_CUSTOMERS)) {
+          const values = drilldown2.periods.map((p) => ({
+            x: p,
+            y: byPeriodCustomer.get(p)?.get(label) ?? 0,
+          }));
+          customerRows.push({
+            group: label,
+            values,
+            total: values.reduce((s, v) => s + v.y, 0),
+          });
+        }
+        const othersCustomerSum = customerTotals.slice(DRILLDOWN_TOP_CUSTOMERS).reduce((s, x) => s + x.sum, 0);
+        if (othersCustomerSum > 0 || customerTotals.length > DRILLDOWN_TOP_CUSTOMERS) {
+          const othersValues = drilldown2.periods.map((p) => ({
+            x: p,
+            y: Array.from(allCustomers)
+              .filter((n) => !topCustomerLabels.has(n))
+              .reduce((s, n) => s + (byPeriodCustomer.get(p)?.get(n) ?? 0), 0),
+          }));
+          customerRows.push({
+            group: 'Others',
+            values: othersValues,
+            total: othersValues.reduce((s, v) => s + v.y, 0),
+          });
+        }
+        const customerMonthTotals = drilldown2.periods.map((period) => ({
+          period,
+          total: customerRows.reduce((s, row) => s + (row.values.find((v) => v.x === period)?.y ?? 0), 0),
+        }));
+        const sumCustomer = customerRows.reduce((s, r) => s + (r.total ?? 0), 0);
+        if (Math.abs(sumCustomer - panelTotal) > 1e-6) {
+          console.warn('[Drill-down 2] sumCustomer !== drilldown2Total', { sumCustomer, panelTotal });
+        }
+        setDrilldown2CustomerRows(customerRows);
+        setDrilldown2CustomerMonthTotals(customerMonthTotals);
       })
       .catch(() => {
         if (!cancelled) {
           setDrilldown2ProductRows([]);
+          setDrilldown2CustomerRows([]);
+          setDrilldown2ProductMonthTotals([]);
+          setDrilldown2CustomerMonthTotals([]);
+          setDrilldown2Total(null);
           setDrilldown2Message(
             'By Product drill-down requires customer-product-profit data linked to Sales Activity Center (not available in current dataset).'
           );
@@ -772,13 +855,14 @@ export function Page0() {
                   width={560}
                   labelWidth={140}
                   monthTotals={salesActivityCenterMonthTotals}
-                  onBarClick={({ groupLabel, period }) =>
+                  onBarClick={({ groupLabel, period }) => {
+                    setDrilldown2Mode('product');
                     setDrilldown2({
                       salesActivityCenterKey: groupLabel,
                       clickedPeriodNo: period,
                       periods: selectedPeriods,
-                    })
-                  }
+                    });
+                  }}
                 />
               ) : salesActivityCenterDataAvailable ? (
                 <p className="trend-panel-message">No Sales Activity Center data for selected period(s).</p>
@@ -795,7 +879,7 @@ export function Page0() {
               <div className="drilldown-2-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
                 <div>
                   <h4 className="drilldown-2-title" style={{ margin: 0, fontSize: 15 }}>
-                    Drill-down 2: {drilldown2.salesActivityCenterKey} → By Product
+                    Drill-down 2: {drilldown2.salesActivityCenterKey} → {drilldown2Mode === 'product' ? 'By Product' : 'By Customer'}
                   </h4>
                   <p className="drilldown-2-periods" style={{ margin: '4px 0 0', fontSize: 12, color: '#555' }}>
                     Period: {drilldown2.periods.length === 1
@@ -804,7 +888,26 @@ export function Page0() {
                     {drilldown2.clickedPeriodNo !== undefined && (
                       <span style={{ marginLeft: 8 }}> (clicked month: {formatMonthMMYYYY(drilldown2.clickedPeriodNo)})</span>
                     )}
+                    {drilldown2Total != null && (
+                      <span style={{ marginLeft: 8 }}> · Total: {formatCurrency(drilldown2Total)}</span>
+                    )}
                   </p>
+                  <div className="drilldown-2-mode-switch" style={{ marginTop: 8, display: 'flex', gap: 6 }}>
+                    <button
+                      type="button"
+                      className={drilldown2Mode === 'product' ? 'btn btn-primary' : 'btn'}
+                      onClick={() => setDrilldown2Mode('product')}
+                    >
+                      Product
+                    </button>
+                    <button
+                      type="button"
+                      className={drilldown2Mode === 'customer' ? 'btn btn-primary' : 'btn'}
+                      onClick={() => setDrilldown2Mode('customer')}
+                    >
+                      Customer
+                    </button>
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -818,7 +921,7 @@ export function Page0() {
               {!drilldown2Loading && drilldown2Message != null && (
                 <p className="trend-panel-message">{drilldown2Message}</p>
               )}
-              {!drilldown2Loading && drilldown2Message == null && drilldown2ProductRows.length > 0 && (
+              {!drilldown2Loading && drilldown2Message == null && drilldown2Mode === 'product' && drilldown2ProductRows.length > 0 && (
                 <GroupedBarRows
                   rows={drilldown2ProductRows}
                   formatPeriod={(x) => formatMonthMMYYYY(x)}
@@ -826,10 +929,27 @@ export function Page0() {
                   barLabelFormatter={(y) => y.toLocaleString('en-US')}
                   width={560}
                   labelWidth={140}
+                  monthTotals={drilldown2ProductMonthTotals}
+                  labelColumnTitle="Product"
                 />
               )}
-              {!drilldown2Loading && drilldown2Message == null && drilldown2ProductRows.length === 0 && drilldown2 != null && (
+              {!drilldown2Loading && drilldown2Message == null && drilldown2Mode === 'customer' && drilldown2CustomerRows.length > 0 && (
+                <GroupedBarRows
+                  rows={drilldown2CustomerRows}
+                  formatPeriod={(x) => formatMonthMMYYYY(x)}
+                  barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
+                  barLabelFormatter={(y) => y.toLocaleString('en-US')}
+                  width={560}
+                  labelWidth={140}
+                  monthTotals={drilldown2CustomerMonthTotals}
+                  labelColumnTitle="Customer"
+                />
+              )}
+              {!drilldown2Loading && drilldown2Message == null && drilldown2Mode === 'product' && drilldown2ProductRows.length === 0 && drilldown2 != null && (
                 <p className="trend-panel-message">No product data for this Sales Activity Center in the selected periods.</p>
+              )}
+              {!drilldown2Loading && drilldown2Message == null && drilldown2Mode === 'customer' && drilldown2CustomerRows.length === 0 && drilldown2 != null && (
+                <p className="trend-panel-message">No customer data for this Sales Activity Center in the selected periods.</p>
               )}
             </div>
           )}

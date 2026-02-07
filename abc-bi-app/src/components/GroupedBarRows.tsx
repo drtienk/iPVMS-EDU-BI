@@ -30,6 +30,8 @@ export interface GroupedBarRowsProps {
   monthTotals?: MonthTotal[];
   /** When provided, each bar is clickable and invokes this with group label, period (x), and value (y) */
   onBarClick?: (args: { groupLabel: string; period: number; value: number }) => void;
+  /** Optional label for the first column when monthTotals is shown (e.g. "Product", "Customer") */
+  labelColumnTitle?: string;
 }
 
 const DEFAULT_WIDTH = 520;
@@ -59,6 +61,7 @@ export function GroupedBarRows({
   labelWidth = LABEL_WIDTH,
   monthTotals = [],
   onBarClick,
+  labelColumnTitle = 'Sales Activity Center',
 }: GroupedBarRowsProps) {
   if (rows.length === 0) {
     return (
@@ -108,7 +111,7 @@ export function GroupedBarRows({
           style={{ height: HEADER_ROW_HEIGHT, borderBottom: '1px solid var(--border)' }}
         >
           <div className="grouped-bar-row-label" style={{ width: labelWidth, fontWeight: 600 }}>
-            Sales Activity Center
+            {labelColumnTitle}
           </div>
           <div className="grouped-bar-row-chart" style={{ display: 'flex', width: barAreaWidth, gap: 0, flexShrink: 0 }}>
             {periods.map((period, i) => (
