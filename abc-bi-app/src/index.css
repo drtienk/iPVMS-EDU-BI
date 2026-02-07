@@ -435,6 +435,10 @@ body {
   min-height: 52px;
 }
 
+.grouped-bar-row-clickable:hover {
+  background: rgba(25, 118, 210, 0.06);
+}
+
 .grouped-bar-row-label {
   flex-shrink: 0;
   overflow: hidden;

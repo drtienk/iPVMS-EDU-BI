@@ -858,6 +858,11 @@ export function Page0() {
     );
   };
 
+  /** 開啟 Customer Drill-down（By Customer 第一層：點列或 bar 皆可展開） */
+  const openCustomerDrill = (customerId: string, customerName: string) => {
+    setCustomerDrill({ customerId, customerName });
+  };
+
   const breadcrumb = [{ label: 'Customer Overview', path: `/page0?periodNo=${periodNo}` }];
 
   const chartFormatCurrency = (y: number) => formatCurrency(y);
@@ -1102,8 +1107,11 @@ export function Page0() {
                   labelWidth={140}
                   monthTotals={customerMonthTotals}
                   labelColumnTitle="Customer"
+                  onRowClick={(row) => {
+                    if (row.key) openCustomerDrill(row.key, row.label);
+                  }}
                   onBarClick={({ groupLabel, dataKey }) => {
-                    if (dataKey) setCustomerDrill({ customerId: dataKey, customerName: groupLabel });
+                    if (dataKey) openCustomerDrill(dataKey, groupLabel);
                   }}
                 />
               ) : (

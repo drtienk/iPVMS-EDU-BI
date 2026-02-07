@@ -32,6 +32,8 @@ export interface GroupedBarRowsProps {
   monthTotals?: MonthTotal[];
   /** When provided, each bar is clickable and invokes this with group label, period (x), value (y), and optional dataKey from row */
   onBarClick?: (args: { groupLabel: string; period: number; value: number; dataKey?: string }) => void;
+  /** When provided, each row is clickable (label + whole row); invokes with row key (e.g. customerId) and label (e.g. customerName) */
+  onRowClick?: (row: { key?: string; label: string }) => void;
   /** Optional label for the first column when monthTotals is shown (e.g. "Product", "Customer") */
   labelColumnTitle?: string;
 }
@@ -63,6 +65,7 @@ export function GroupedBarRows({
   labelWidth = LABEL_WIDTH,
   monthTotals = [],
   onBarClick,
+  onRowClick,
   labelColumnTitle = 'Sales Activity Center',
 }: GroupedBarRowsProps) {
   if (rows.length === 0) {
@@ -155,8 +158,28 @@ export function GroupedBarRows({
       {rows.map((row, rowIdx) => {
         const showTotal = row.total !== undefined && row.total !== null;
         const totalColor = showTotal && row.total! < 0 ? '#C62828' : '#2E7D32';
+        const rowClickable = Boolean(onRowClick);
         return (
-          <div key={rowIdx} className="grouped-bar-row" style={{ height: ROW_HEIGHT }}>
+          <div
+            key={rowIdx}
+            className={`grouped-bar-row${rowClickable ? ' grouped-bar-row-clickable' : ''}`}
+            style={{
+              height: ROW_HEIGHT,
+              cursor: rowClickable ? 'pointer' : undefined,
+            }}
+            onClick={() => {
+              if (onRowClick) onRowClick({ key: row.dataKey, label: row.group });
+            }}
+            onKeyDown={(e) => {
+              if (!onRowClick) return;
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onRowClick({ key: row.dataKey, label: row.group });
+              }
+            }}
+            role={rowClickable ? 'button' : undefined}
+            tabIndex={rowClickable ? 0 : undefined}
+          >
             <div className="grouped-bar-row-label" style={{ width: labelWidth }}>
               {row.group}
             </div>
