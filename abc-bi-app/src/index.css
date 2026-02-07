@@ -457,3 +457,9 @@ body {
   font-weight: 600;
   background: rgba(0, 0, 0, 0.04);
 }
+
+/* Service Cost Breakdown table: Total row at bottom */
+.service-cost-breakdown-table .table tbody tr:last-child td {
+  font-weight: bold;
+  border-top: 2px solid #ddd;
+}

@@ -1268,8 +1268,19 @@ export function Page0() {
                     </p>
                   )}
                   {!serviceCostDrillLoading && serviceCostDrillRows.length > 0 && (() => {
+                    const activityRows = serviceCostDrillRows;
+                    const totalRow: Record<string, string | number> = { activity: 'Total' };
+                    (totalRow as Record<string, unknown>)['isTotal'] = true;
+                    for (const p of selectedPeriods) {
+                      const totalHours = activityRows.reduce((s, r) => s + Number(r[`${p}_hours`] ?? 0), 0);
+                      const totalCost = activityRows.reduce((s, r) => s + Number(r[`${p}_cost`] ?? 0), 0);
+                      totalRow[`${p}_hours`] = totalHours;
+                      totalRow[`${p}_cost`] = totalCost;
+                    }
+                    const rowsWithTotal = [...activityRows, totalRow];
+
                     const lastPeriod = selectedPeriods[selectedPeriods.length - 1];
-                    const sortedByLatestCost = [...serviceCostDrillRows].sort(
+                    const sortedByLatestCost = [...activityRows].sort(
                       (a, b) => Number(b[`${lastPeriod}_cost`] ?? 0) - Number(a[`${lastPeriod}_cost`] ?? 0)
                     );
                     const topRows = sortedByLatestCost.slice(0, SERVICE_COST_CHART_TOP_N);
@@ -1286,7 +1297,12 @@ export function Page0() {
                     });
                     const serviceCostChartMonthTotals = serviceCostDrillPeriodTotals;
                     const cols: ColumnDef<Record<string, string | number>, unknown>[] = [
-                      { accessorKey: 'activity', header: 'Activity (Code)' },
+                      {
+                        accessorKey: 'activity',
+                        header: 'Activity (Code)',
+                        cell: ({ row, getValue }: { row: { original: Record<string, unknown> }; getValue: () => unknown }) =>
+                          (row.original as { isTotal?: boolean }).isTotal === true ? <strong>Total</strong> : String(getValue() ?? ''),
+                      },
                     ];
                     for (const p of selectedPeriods) {
                       cols.push({
@@ -1320,12 +1336,15 @@ export function Page0() {
                             <p className="trend-panel-message">No activity cost data.</p>
                           )}
                         </div>
-                        <DataTable
-                          data={serviceCostDrillRows}
-                          columns={cols}
-                          searchable={false}
-                          pageSize={10}
-                        />
+                        <div className="service-cost-breakdown-table">
+                          <DataTable
+                            data={rowsWithTotal}
+                            columns={cols}
+                            searchable={false}
+                            pageSize={10}
+                            sortable={false}
+                          />
+                        </div>
                       </>
                     );
                   })()}
