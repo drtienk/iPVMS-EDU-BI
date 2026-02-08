@@ -258,6 +258,7 @@ function buildDrilldownByCustomer(
 export function Page0() {
   const [w1, setW1] = useState(420);
   const [w2, setW2] = useState(520);
+  const [w3, setW3] = useState(520); // 右邊第三欄（Service Cost）
 
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -325,7 +326,27 @@ export function Page0() {
     window.addEventListener('mouseup', onUp);
   };
   
-
+  const startResize23 = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW2 = w2;
+    const startW3 = w3;
+  
+    const onMove = (ev: MouseEvent) => {
+      const dx = ev.clientX - startX;
+      setW2(Math.max(320, startW2 + dx));   // 第二欄變大
+      setW3(Math.max(320, startW3 - dx));   // 第三欄變小（反向）
+    };
+  
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+  
 
   const railRef = useRef<HTMLDivElement>(null);
   const activeLevel = serviceCostDrill != null ? 3 : (customerDrill != null || drilldown2 != null) ? 2 : 1;
@@ -1375,9 +1396,22 @@ export function Page0() {
               </div>
             )}
 
+
+{/* ✅ 在這裡插入 resizer（col2 和 col3 中間） */}
+{serviceCostDrill != null && (
+              <div className="rail-resizer" onMouseDown={startResize23} />
+            )}
+
+
+
+
             {/* Column 3: Level 3 — Service Cost Breakdown (Customer path only) */}
             {serviceCostDrill != null && (
-              <div className={`drill-panel drilldown-rail-column level-3 ${activeLevel === 3 ? 'active' : 'inactive'} enter`}>
+  <div
+    className={`drill-panel drilldown-rail-column level-3 ${activeLevel === 3 ? 'active' : 'inactive'} enter`}
+    style={{ width: w3, flex: '0 0 auto' }}
+  >
+
                 <div className="drill-panel-header drilldown-rail-column-header">
                   <span className="drill-panel-title">Service Cost Breakdown</span>
                   <button type="button" className="drilldown-rail-close" onClick={() => setServiceCostDrill(null)}>Close</button>
