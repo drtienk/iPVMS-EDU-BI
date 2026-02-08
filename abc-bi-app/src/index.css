@@ -345,6 +345,12 @@ body {
   background: #fafafa;
 }
 
+.drill-rail {
+  gap: 20px;
+  padding: 12px 12px 16px;
+  scroll-behavior: smooth;
+}
+
 .drilldown-rail-column {
   display: flex;
   flex-direction: column;
@@ -360,6 +366,101 @@ body {
   border-right: none;
 }
 
+/* Notion/Airtable-like card panels */
+.drill-panel {
+  flex: 0 0 auto;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  padding: 0;
+  min-height: 200px;
+  border-right: none;
+}
+
+.drill-panel.level-1 { width: 520px; }
+.drill-panel.level-2 { width: 480px; }
+.drill-panel.level-3 { width: 440px; }
+.drill-panel.level-4 { width: 400px; }
+
+.drill-panel-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.drill-panel-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drill-panel-body {
+  padding: 10px 12px 14px;
+  overflow: auto;
+  max-height: calc(100vh - 220px);
+}
+
+.drill-panel.inactive { opacity: 0.88; }
+.drill-panel.active {
+  opacity: 1;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.drill-panel.enter {
+  animation: drillEnter 200ms ease-out;
+}
+
+@keyframes drillEnter {
+  from { opacity: 0; transform: translateX(14px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Table readability inside drill panels */
+.drill-panel table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.drill-panel th,
+.drill-panel td {
+  font-size: 13px;
+  padding: 10px 12px;
+  vertical-align: top;
+}
+
+.drill-panel td.num,
+.drill-panel th.num {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.drill-panel td.label,
+.drill-panel th.label {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.drill-panel .table-controls,
+.drill-panel .pagination {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .drilldown-rail-column-header {
   display: flex;
   align-items: center;
@@ -371,6 +472,11 @@ body {
   background: #f5f5f5;
   font-size: 14px;
   font-weight: 600;
+}
+
+.drill-panel-header.drilldown-rail-column-header {
+  background: #fff;
+  border-bottom: 1px solid #eee;
 }
 
 .drilldown-rail-column-header .drilldown-rail-close {
@@ -509,9 +615,67 @@ body {
   color: #333;
 }
 
+/* Drill-down: customer name full display, allow 2-line wrap */
+.drill-panel .grouped-bar-row-label {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-overflow: ellipsis;
+  min-width: 160px;
+}
+
+.drill-panel .grouped-bar-row:not(.grouped-bar-row-header) {
+  min-height: 52px;
+  height: auto;
+  align-items: flex-start;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
 .grouped-bar-row-chart {
   flex: 1;
   min-width: 0;
+}
+
+/* Multi-period bar grid: middle column widest, more gap */
+.bars-grid {
+  display: grid;
+  column-gap: 18px;
+  align-items: flex-end;
+  min-width: 0;
+}
+
+.bars-grid.cols-1 {
+  grid-template-columns: 1fr;
+}
+
+.bars-grid.cols-2 {
+  grid-template-columns: 1fr 1.6fr;
+}
+
+.bars-grid.cols-3 {
+  grid-template-columns: 1fr 2fr 1fr;
+}
+
+.bar-cell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* Level 3 (and any) Total column narrower */
+.grouped-bar-row-total-col.col-total {
+  width: 120px;
+  max-width: 120px;
+  min-width: 120px;
+  text-align: right;
+  white-space: nowrap;
 }
 
 /* Customer Drill-down metrics table: emphasize last row (Customer Profitability) */

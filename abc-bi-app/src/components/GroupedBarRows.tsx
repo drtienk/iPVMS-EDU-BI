@@ -25,6 +25,8 @@ export interface GroupedBarRowsProps {
   barColor?: (y: number) => string;
   /** Format value above bar */
   barLabelFormatter?: (y: number) => string;
+  /** Format month total (header) and row total. When not set, uses default number format. */
+  totalFormatter?: (t: number) => string;
   width?: number;
   /** Width for left column (group name) */
   labelWidth?: number;
@@ -40,11 +42,11 @@ export interface GroupedBarRowsProps {
 
 const DEFAULT_WIDTH = 520;
 const LABEL_WIDTH = 140;
-const TOTAL_COL_WIDTH = 160;
+const TOTAL_COL_WIDTH = 120;
 const ROW_HEIGHT = 92;
 const INNER_HEIGHT = 58;
 const BAR_WIDTH = 12;
-const BAR_GAP = 18;
+const BAR_CELL_SVG_WIDTH = 56;
 const VALUE_LABEL_GAP = 6;
 const MONTH_LABEL_OFFSET = 14;
 const HEADER_ROW_HEIGHT = 40;
@@ -61,6 +63,7 @@ export function GroupedBarRows({
   formatPeriod,
   barColor = DEFAULT_BAR_COLOR,
   barLabelFormatter = (y) => y.toLocaleString('en-US', { maximumFractionDigits: 2 }),
+  totalFormatter,
   width = DEFAULT_WIDTH,
   labelWidth = LABEL_WIDTH,
   monthTotals = [],
@@ -80,9 +83,8 @@ export function GroupedBarRows({
   const gap = 12;
   const barAreaWidth = width - labelWidth - (useTotalColumn ? TOTAL_COL_WIDTH : 0) - gap * 2;
   const numBars = Math.max(1, rows[0]?.values.length ?? 0);
-  const colWidth = barAreaWidth / numBars;
-  const barWidth = Math.min(BAR_WIDTH, colWidth - BAR_GAP);
   const baseline = INNER_HEIGHT * BASELINE_FRAC;
+  const barWidth = Math.min(BAR_WIDTH, BAR_CELL_SVG_WIDTH - 8);
 
   const allValues = rows.flatMap((r) => r.values.map((v) => v.y));
   const valueMin = Math.min(0, ...allValues);
@@ -102,11 +104,12 @@ export function GroupedBarRows({
   const barY0 = scaleY(0);
 
   const formatTotal = (t: number) =>
-    t.toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 0 });
+    totalFormatter ? totalFormatter(t) : t.toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 0 });
 
   const periods = monthTotals.length > 0
     ? monthTotals.map((m) => m.period)
     : (rows[0]?.values.map((v) => v.x) ?? []);
+  const barsGridClass = `bars-grid cols-${numBars}`;
 
   return (
     <div className="grouped-bar-rows" style={{ width }}>
@@ -118,29 +121,19 @@ export function GroupedBarRows({
           <div className="grouped-bar-row-label" style={{ width: labelWidth, fontWeight: 600 }}>
             {labelColumnTitle}
           </div>
-          <div className="grouped-bar-row-chart" style={{ display: 'flex', width: barAreaWidth, gap: 0, flexShrink: 0 }}>
+          <div className={`grouped-bar-row-chart ${barsGridClass}`} style={{ width: barAreaWidth, flexShrink: 0 }}>
             {periods.map((period, i) => (
-              <div
-                key={i}
-                style={{
-                  width: colWidth,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'flex-end',
-                  paddingBottom: 2,
-                }}
-              >
+              <div key={i} className="bar-cell" style={{ paddingBottom: 2 }}>
                 <span style={{ fontSize: 10, color: '#555' }}>{formatPeriod(period)}</span>
                 <span style={{ fontSize: 11, fontWeight: 600, color: '#333' }}>
-                  {formatNumber(monthTotals[i]?.total ?? 0)}
+                  {formatTotal(monthTotals[i]?.total ?? 0)}
                 </span>
               </div>
             ))}
           </div>
           {useTotalColumn && (
             <div
-              className="grouped-bar-row-total-col"
+              className="grouped-bar-row-total-col col-total"
               style={{
                 width: TOTAL_COL_WIDTH,
                 textAlign: 'right',
@@ -164,7 +157,7 @@ export function GroupedBarRows({
             key={rowIdx}
             className={`grouped-bar-row${rowClickable ? ' grouped-bar-row-clickable' : ''}`}
             style={{
-              height: ROW_HEIGHT,
+              minHeight: ROW_HEIGHT,
               cursor: rowClickable ? 'pointer' : undefined,
             }}
             onClick={() => {
@@ -192,69 +185,71 @@ export function GroupedBarRows({
                 width: useTotalColumn ? barAreaWidth + TOTAL_COL_WIDTH + gap : undefined,
               }}
             >
-            <svg
-              width={barAreaWidth}
-              height={ROW_HEIGHT}
-              style={{ overflow: 'visible', flexShrink: 0 }}
-            >
+            <div className={`grouped-bar-row-chart ${barsGridClass}`} style={{ width: barAreaWidth, flexShrink: 0 }}>
               {row.values.map((v, i) => {
-                const x = (i + 0.5) * colWidth - barWidth / 2;
                 const yVal = v.y;
                 const yPixelTop = scaleY(yVal);
                 const yPixelBase = barY0;
                 const h = Math.abs(yPixelBase - yPixelTop);
                 const yRect = yVal >= 0 ? yPixelTop : yPixelBase;
                 const fill = barColor(yVal);
-                const barCenterX = (i + 0.5) * colWidth;
+                const barCenterX = BAR_CELL_SVG_WIDTH / 2;
                 const labelY = (yVal >= 0 ? yPixelTop : barY0) - VALUE_LABEL_GAP;
-
                 return (
-                  <g key={i}>
-                    <rect
-                      x={x}
-                      y={yRect}
-                      width={barWidth}
-                      height={h}
-                      fill={fill}
-                      className="grouped-bar-rect"
-                      style={{ cursor: onBarClick ? 'pointer' : undefined }}
-                      onClick={(e) => {
-                        if (onBarClick) {
-                          e.stopPropagation();
-                          onBarClick({
-                            groupLabel: row.group,
-                            period: Number(v.x),
-                            value: yVal,
-                            dataKey: row.dataKey,
-                          });
-                        }
-                      }}
-                    />
-                    <text
-                      x={barCenterX}
-                      y={labelY}
-                      textAnchor="middle"
-                      fontSize={10}
-                      fill={yVal < 0 ? '#C62828' : '#2E7D32'}
+                  <div key={i} className="bar-cell">
+                    <svg
+                      width={BAR_CELL_SVG_WIDTH}
+                      height={ROW_HEIGHT}
+                      style={{ overflow: 'visible' }}
                     >
-                      {barLabelFormatter(yVal)}
-                    </text>
-                    <text
-                      x={barCenterX}
-                      y={INNER_HEIGHT + MONTH_LABEL_OFFSET}
-                      textAnchor="middle"
-                      fontSize={9}
-                      fill="#555"
-                    >
-                      {formatPeriod(v.x)}
-                    </text>
-                  </g>
+                      <g>
+                        <rect
+                          x={barCenterX - barWidth / 2}
+                          y={yRect}
+                          width={barWidth}
+                          height={h}
+                          fill={fill}
+                          className="grouped-bar-rect"
+                          style={{ cursor: onBarClick ? 'pointer' : undefined }}
+                          onClick={(e) => {
+                            if (onBarClick) {
+                              e.stopPropagation();
+                              onBarClick({
+                                groupLabel: row.group,
+                                period: Number(v.x),
+                                value: yVal,
+                                dataKey: row.dataKey,
+                              });
+                            }
+                          }}
+                        />
+                        <text
+                          x={barCenterX}
+                          y={labelY}
+                          textAnchor="middle"
+                          fontSize={10}
+                          fill={yVal < 0 ? '#C62828' : '#2E7D32'}
+                        >
+                          {barLabelFormatter(yVal)}
+                        </text>
+                        <text
+                          x={barCenterX}
+                          y={INNER_HEIGHT + MONTH_LABEL_OFFSET}
+                          textAnchor="middle"
+                          fontSize={9}
+                          fill="#555"
+                        >
+                          {formatPeriod(v.x)}
+                        </text>
+                      </g>
+                    </svg>
+                  </div>
                 );
               })}
-            </svg>
+            </div>
             {useTotalColumn && (
               <div
-                className="grouped-bar-row-total-col"
+                className="grouped-bar-row-total-col col-total"
                 style={{
                   width: TOTAL_COL_WIDTH,
                   minWidth: TOTAL_COL_WIDTH,
@@ -269,7 +264,7 @@ export function GroupedBarRows({
                   justifyContent: 'flex-end',
                 }}
               >
-                {showTotal ? `Total: ${formatTotal(row.total!)}` : '—'}
+                {showTotal ? formatTotal(row.total!) : '—'}
               </div>
             )}
             </div>

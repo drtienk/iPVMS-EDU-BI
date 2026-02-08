@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useRefreshContext } from '../contexts/RefreshContext';
 import { DataTable } from '../components/DataTable';
@@ -7,7 +7,7 @@ import { SimpleChart, formatMonthMMYYYY } from '../components/SimpleChart';
 import { GroupedBarRows } from '../components/GroupedBarRows';
 import type { GroupedBarRow } from '../components/GroupedBarRows';
 import { getTableData, listPeriods, getTable } from '../dataApi';
-import { formatCurrency, formatPercent } from '../utils/format';
+import { formatMoney, formatNumber1, formatPercent } from '../utils/format';
 import { toNumber } from '../normalize';
 import type {
   CustomerProductProfitRow,
@@ -115,7 +115,7 @@ function buildHistBins(rows: CustomerProfitResultRow[], numBins: number): HistBi
   const bins: HistBin[] = Array.from({ length: numBins }, (_, i) => {
     const lo = min + i * binWidth;
     const hi = i === numBins - 1 ? max : min + (i + 1) * binWidth;
-    return { label: `${formatCurrency(lo)} ~ ${formatCurrency(hi)}`, count: 0, sumProfit: 0 };
+    return { label: `${formatMoney(lo)} ~ ${formatMoney(hi)}`, count: 0, sumProfit: 0 };
   });
   for (const p of profits) {
     let idx = Math.min(Math.floor((p - min) / binWidth), numBins - 1);
@@ -298,6 +298,13 @@ export function Page0() {
   const [drilldown2Message, setDrilldown2Message] = useState<string | null>(null);
   const [loadingDrilldown, setLoadingDrilldown] = useState(false);
   const [errorDrilldown, setErrorDrilldown] = useState<string | null>(null);
+
+  const railRef = useRef<HTMLDivElement>(null);
+  const activeLevel = serviceCostDrill != null ? 3 : (customerDrill != null || drilldown2 != null) ? 2 : 1;
+
+  useEffect(() => {
+    railRef.current?.scrollTo({ left: railRef.current.scrollWidth, behavior: 'smooth' });
+  }, [customerDrill, drilldown2, serviceCostDrill]);
 
   useEffect(() => {
     if (isNaN(periodNo)) {
@@ -824,24 +831,24 @@ export function Page0() {
     {
       accessorKey: 'Price',
       header: 'Price',
-      cell: ({ getValue }) => formatCurrency((getValue() as number) ?? 0),
+      cell: ({ getValue }) => formatMoney((getValue() as number) ?? 0),
     },
     {
       accessorKey: 'SalesProfit',
       header: 'SalesProfit',
-      cell: ({ getValue }) => formatCurrency((getValue() as number) ?? 0),
+      cell: ({ getValue }) => formatMoney((getValue() as number) ?? 0),
     },
     {
       accessorKey: 'ServiceCost',
       header: 'ServiceCost',
-      cell: ({ getValue }) => formatCurrency((getValue() as number) ?? 0),
+      cell: ({ getValue }) => formatMoney((getValue() as number) ?? 0),
     },
     {
       accessorKey: 'CustomerProfit',
       header: 'CustomerProfit',
       cell: ({ getValue }) => {
         const v = getValue() as number;
-        return <span className={v >= 0 ? 'profit-positive' : 'profit-negative'}>{formatCurrency(v ?? 0)}</span>;
+        return <span className={v >= 0 ? 'profit-positive' : 'profit-negative'}>{formatMoney(v ?? 0)}</span>;
       },
     },
     {
@@ -866,7 +873,7 @@ export function Page0() {
 
   const breadcrumb = [{ label: 'Customer Overview', path: `/page0?periodNo=${periodNo}` }];
 
-  const chartFormatCurrency = (y: number) => formatCurrency(y);
+  const chartFormatMoney = (y: number) => formatMoney(y);
   const chartFormatCount = (y: number) => String(Math.round(y));
 
   return (
@@ -886,12 +893,12 @@ export function Page0() {
                 data={aggregates.map((a) => ({ x: a.periodNo, y: a.totalProfitability }))}
                 type="bar"
                 color="#2E7D32"
-                barLabelFormatter={(v) => v.toLocaleString('en-US')}
+                barLabelFormatter={(v) => formatMoney(v)}
                 xLabelFormatter={(x) => formatMonthMMYYYY(x)}
                 xLabel="Period"
                 yLabel="Value"
                 formatX={(x) => String(x)}
-                formatY={chartFormatCurrency}
+                formatY={chartFormatMoney}
                 width={340}
                 height={200}
                 onBarClick={(d) => {
@@ -908,12 +915,12 @@ export function Page0() {
                 data={aggregates.map((a) => ({ x: a.periodNo, y: a.totalRevenue }))}
                 type="bar"
                 color="#1565C0"
-                barLabelFormatter={(v) => v.toLocaleString('en-US')}
+                barLabelFormatter={(v) => formatMoney(v)}
                 xLabelFormatter={(x) => formatMonthMMYYYY(x)}
                 xLabel="Period"
                 yLabel="Value"
                 formatX={(x) => String(x)}
-                formatY={chartFormatCurrency}
+                formatY={chartFormatMoney}
                 width={340}
                 height={200}
               />
@@ -924,12 +931,12 @@ export function Page0() {
                 data={aggregates.map((a) => ({ x: a.periodNo, y: a.totalServiceCost }))}
                 type="bar"
                 color="#C62828"
-                barLabelFormatter={(v) => v.toLocaleString('en-US')}
+                barLabelFormatter={(v) => formatMoney(v)}
                 xLabelFormatter={(x) => formatMonthMMYYYY(x)}
                 xLabel="Period"
                 yLabel="Value"
                 formatX={(x) => String(x)}
-                formatY={chartFormatCurrency}
+                formatY={chartFormatMoney}
                 width={340}
                 height={200}
               />
@@ -953,11 +960,11 @@ export function Page0() {
 
       {selectedPeriodNo != null && (
         <section className="trend-panel drilldown-panel">
-          <div className="drilldown-rail">
+          <div ref={railRef} className="drilldown-rail drill-rail">
             {/* Column 1: Level 1 — By Customer / By Product / By SAC / Ranked / Distribution */}
-            <div className="drilldown-rail-column">
-              <div className="drilldown-rail-column-header">
-                <h3 className="drilldown-title" style={{ margin: 0 }}>
+            <div className={`drill-panel drilldown-rail-column level-1 ${activeLevel === 1 ? 'active' : 'inactive'} enter`}>
+              <div className="drill-panel-header drilldown-rail-column-header">
+                <h3 className="drilldown-title drill-panel-title" style={{ margin: 0 }}>
                   {selectedPeriods.length === 0
                     ? `Drill-down: Period ${selectedPeriodNo}`
                     : selectedPeriods.length === 1
@@ -975,7 +982,7 @@ export function Page0() {
                   Close
                 </button>
               </div>
-              <div className="drilldown-rail-column-body">
+              <div className="drill-panel-body drilldown-rail-column-body">
           <div className="drilldown-tabs">
             <button
               type="button"
@@ -1026,9 +1033,9 @@ export function Page0() {
                 <>
                   <div className="drilldown-summary">
                     <span>Customers: {drilldownRows.length}</span>
-                    <span>Total Profit: {formatCurrency(drilldownRows.reduce((s, r) => s + toNumber(r.CustomerProfit, 0), 0))}</span>
-                    <span>Avg Profit: {formatCurrency(drilldownRows.length ? drilldownRows.reduce((s, r) => s + toNumber(r.CustomerProfit, 0), 0) / drilldownRows.length : 0)}</span>
-                    <span>Median: {formatCurrency(median(drilldownRows.map((r) => toNumber(r.CustomerProfit, 0)).sort((a, b) => a - b)))}</span>
+                    <span>Total Profit: {formatMoney(drilldownRows.reduce((s, r) => s + toNumber(r.CustomerProfit, 0), 0))}</span>
+                    <span>Avg Profit: {formatMoney(drilldownRows.length ? drilldownRows.reduce((s, r) => s + toNumber(r.CustomerProfit, 0), 0) / drilldownRows.length : 0)}</span>
+                    <span>Median: {formatMoney(median(drilldownRows.map((r) => toNumber(r.CustomerProfit, 0)).sort((a, b) => a - b)))}</span>
                   </div>
                   <div className="top-n-row">
                     <label>
@@ -1051,25 +1058,25 @@ export function Page0() {
                     <table className="table">
                       <thead>
                         <tr>
-                          <th>#</th>
-                          <th>CustomerID</th>
-                          <th>Customer</th>
-                          <th>CustomerProfit</th>
-                          <th>Revenue (Price)</th>
-                          <th>ServiceCost</th>
+                          <th className="num">#</th>
+                          <th className="label">CustomerID</th>
+                          <th className="label">Customer</th>
+                          <th className="num">CustomerProfit</th>
+                          <th className="num">Revenue (Price)</th>
+                          <th className="num">ServiceCost</th>
                         </tr>
                       </thead>
                       <tbody>
                         {(showAllRanked ? drilldownRows : drilldownRows.slice(0, topN)).map((r, i) => (
                           <tr key={`${r.customerId}-${i}`}>
-                            <td>{i + 1}</td>
-                            <td>{String(r.CustomerID ?? r.customerId ?? '')}</td>
-                            <td>{String(r.Customer ?? '')}</td>
-                            <td className={toNumber(r.CustomerProfit, 0) >= 0 ? 'profit-positive' : 'profit-negative'}>
-                              {formatCurrency(toNumber(r.CustomerProfit, 0))}
+                            <td className="num">{i + 1}</td>
+                            <td className="label">{String(r.CustomerID ?? r.customerId ?? '')}</td>
+                            <td className="label">{String(r.Customer ?? '')}</td>
+                            <td className={`num ${toNumber(r.CustomerProfit, 0) >= 0 ? 'profit-positive' : 'profit-negative'}`}>
+                              {formatMoney(toNumber(r.CustomerProfit, 0))}
                             </td>
-                            <td>{formatCurrency(toNumber(r.Price, 0))}</td>
-                            <td>{formatCurrency(toNumber(r.ServiceCost, 0))}</td>
+                            <td className="num">{formatMoney(toNumber(r.Price, 0))}</td>
+                            <td className="num">{formatMoney(toNumber(r.ServiceCost, 0))}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1107,9 +1114,10 @@ export function Page0() {
                   rows={groupedCustomerRows}
                   formatPeriod={(x) => formatMonthMMYYYY(x)}
                   barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
-                  barLabelFormatter={(y) => y.toLocaleString('en-US')}
-                  width={360}
-                  labelWidth={120}
+                  barLabelFormatter={(y) => formatMoney(y)}
+                  totalFormatter={formatMoney}
+                  width={400}
+                  labelWidth={160}
                   monthTotals={customerMonthTotals}
                   labelColumnTitle="Customer"
                   onRowClick={(row) => {
@@ -1132,7 +1140,8 @@ export function Page0() {
                   rows={groupedProductRows}
                   formatPeriod={(x) => formatMonthMMYYYY(x)}
                   barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
-                  barLabelFormatter={(y) => y.toLocaleString('en-US')}
+                  barLabelFormatter={(y) => formatMoney(y)}
+                  totalFormatter={formatMoney}
                   width={360}
                   labelWidth={120}
                 />
@@ -1151,7 +1160,8 @@ export function Page0() {
                   rows={groupedSalesActivityCenterRows}
                   formatPeriod={(x) => formatMonthMMYYYY(x)}
                   barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
-                  barLabelFormatter={(y) => y.toLocaleString('en-US')}
+                  barLabelFormatter={(y) => formatMoney(y)}
+                  totalFormatter={formatMoney}
                   width={360}
                   labelWidth={120}
                   monthTotals={salesActivityCenterMonthTotals}
@@ -1195,7 +1205,7 @@ export function Page0() {
                     Close
                   </button>
                 </div>
-                <div className="drilldown-rail-column-body">
+                <div className="drill-panel-body drilldown-rail-column-body">
                   {customerDrillLoading && <p className="trend-panel-message">Loading…</p>}
                   {!customerDrillLoading && customerDrillMetrics.length > 0 && (() => {
                     const periodKeys = customerDrillMetrics.map((m) => String(m.periodNo));
@@ -1223,7 +1233,7 @@ export function Page0() {
                         header: formatMonthMMYYYY(Number(p)),
                         cell: ({ getValue, row }: { getValue: () => unknown; row: { original: Record<string, string | number> } }) => {
                           const value = Number(getValue() ?? 0);
-                          const formatted = formatCurrency(value);
+                          const formatted = formatMoney(value);
                           return row.original.metric === 'Customer Profitability' ? (
                             <span className={value >= 0 ? 'profit-positive' : 'profit-negative'}>{formatted}</span>
                           ) : (
@@ -1239,7 +1249,8 @@ export function Page0() {
                             rows={customerMetricChartRows}
                             formatPeriod={(x) => formatMonthMMYYYY(x)}
                             barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
-                            barLabelFormatter={(y) => y.toLocaleString('en-US')}
+                            barLabelFormatter={(y) => formatMoney(y)}
+                            totalFormatter={formatMoney}
                             width={320}
                             labelWidth={120}
                             monthTotals={customerMetricMonthTotals}
@@ -1268,15 +1279,15 @@ export function Page0() {
               </div>
             )}
             {customerDrill == null && drilldown2 != null && (
-              <div className="drilldown-rail-column">
-                <div className="drilldown-rail-column-header">
-                  <span>{drilldown2.salesActivityCenterKey} → {drilldown2Mode === 'product' ? 'Product' : 'Customer'}</span>
+              <div className={`drill-panel drilldown-rail-column level-2 ${activeLevel === 2 ? 'active' : 'inactive'} enter`}>
+                <div className="drill-panel-header drilldown-rail-column-header">
+                  <span className="drill-panel-title">{drilldown2.salesActivityCenterKey} → {drilldown2Mode === 'product' ? 'Product' : 'Customer'}</span>
                   <button type="button" className="drilldown-rail-close" onClick={() => setDrilldown2(null)}>Close</button>
                 </div>
-                <div className="drilldown-rail-column-body">
+                <div className="drill-panel-body drilldown-rail-column-body">
                   <p style={{ margin: '0 0 8px', fontSize: 12, color: '#555' }}>
                     Period: {drilldown2.periods.length === 1 ? String(drilldown2.periods[0]) : `${drilldown2.periods[0]}–${drilldown2.periods[drilldown2.periods.length - 1]}`}
-                    {drilldown2Total != null && ` · Total: ${formatCurrency(drilldown2Total)}`}
+                    {drilldown2Total != null && ` · Total: ${formatMoney(drilldown2Total)}`}
                   </p>
                   <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
                     <button type="button" className={drilldown2Mode === 'product' ? 'btn btn-primary' : 'btn'} onClick={() => setDrilldown2Mode('product')}>Product</button>
@@ -1285,10 +1296,10 @@ export function Page0() {
                   {drilldown2Loading && <p className="trend-panel-message">Loading…</p>}
                   {!drilldown2Loading && drilldown2Message != null && <p className="trend-panel-message">{drilldown2Message}</p>}
                   {!drilldown2Loading && drilldown2Message == null && drilldown2Mode === 'product' && drilldown2ProductRows.length > 0 && (
-                    <GroupedBarRows rows={drilldown2ProductRows} formatPeriod={(x) => formatMonthMMYYYY(x)} barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')} barLabelFormatter={(y) => y.toLocaleString('en-US')} width={320} labelWidth={100} monthTotals={drilldown2ProductMonthTotals} labelColumnTitle="Product" />
+                    <GroupedBarRows rows={drilldown2ProductRows} formatPeriod={(x) => formatMonthMMYYYY(x)} barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')} barLabelFormatter={(y) => formatMoney(y)} totalFormatter={formatMoney} width={320} labelWidth={100} monthTotals={drilldown2ProductMonthTotals} labelColumnTitle="Product" />
                   )}
                   {!drilldown2Loading && drilldown2Message == null && drilldown2Mode === 'customer' && drilldown2CustomerRows.length > 0 && (
-                    <GroupedBarRows rows={drilldown2CustomerRows} formatPeriod={(x) => formatMonthMMYYYY(x)} barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')} barLabelFormatter={(y) => y.toLocaleString('en-US')} width={320} labelWidth={100} monthTotals={drilldown2CustomerMonthTotals} labelColumnTitle="Customer" />
+                    <GroupedBarRows rows={drilldown2CustomerRows} formatPeriod={(x) => formatMonthMMYYYY(x)} barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')} barLabelFormatter={(y) => formatMoney(y)} totalFormatter={formatMoney} width={320} labelWidth={100} monthTotals={drilldown2CustomerMonthTotals} labelColumnTitle="Customer" />
                   )}
                   {!drilldown2Loading && drilldown2Message == null && drilldown2ProductRows.length === 0 && drilldown2CustomerRows.length === 0 && (
                     <p className="trend-panel-message">No data for this SAC in selected periods.</p>
@@ -1299,16 +1310,16 @@ export function Page0() {
 
             {/* Column 3: Level 3 — Service Cost Breakdown (Customer path only) */}
             {serviceCostDrill != null && (
-              <div className="drilldown-rail-column">
-                <div className="drilldown-rail-column-header">
-                  <span>Service Cost Breakdown</span>
+              <div className={`drill-panel drilldown-rail-column level-3 ${activeLevel === 3 ? 'active' : 'inactive'} enter`}>
+                <div className="drill-panel-header drilldown-rail-column-header">
+                  <span className="drill-panel-title">Service Cost Breakdown</span>
                   <button type="button" className="drilldown-rail-close" onClick={() => setServiceCostDrill(null)}>Close</button>
                 </div>
-                <div className="drilldown-rail-column-body">
+                <div className="drill-panel-body drilldown-rail-column-body">
                   {serviceCostDrillLoading && <p className="trend-panel-message">Loading…</p>}
                   {!serviceCostDrillLoading && serviceCostDrillPeriodTotals.length > 0 && (
                     <p style={{ marginBottom: 8, fontSize: 12, color: '#555' }}>
-                      Total by period: {serviceCostDrillPeriodTotals.map(({ periodNo, totalCost }) => `${formatMonthMMYYYY(periodNo)}: ${formatCurrency(totalCost)}`).join(' · ')}
+                      Total by period: {serviceCostDrillPeriodTotals.map(({ periodNo, totalCost }) => `${formatMonthMMYYYY(periodNo)}: ${formatMoney(totalCost)}`).join(' · ')}
                     </p>
                   )}
                   {!serviceCostDrillLoading && serviceCostDrillRows.length > 0 && (() => {
@@ -1332,14 +1343,14 @@ export function Page0() {
                       { accessorKey: 'activity', header: 'Activity', cell: ({ row, getValue }: { row: { original: Record<string, unknown> }; getValue: () => unknown }) => (row.original as { isTotal?: boolean }).isTotal === true ? <strong>Total</strong> : String(getValue() ?? '') },
                     ];
                     for (const p of selectedPeriods) {
-                      cols.push({ accessorKey: `${p}_hours`, header: `${formatMonthMMYYYY(p)} H`, cell: ({ getValue }: { getValue: () => unknown }) => Number(getValue() ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) });
-                      cols.push({ accessorKey: `${p}_cost`, header: `${formatMonthMMYYYY(p)} Cost`, cell: ({ getValue }: { getValue: () => unknown }) => formatCurrency(Number(getValue() ?? 0)) });
+                      cols.push({ accessorKey: `${p}_hours`, header: `${formatMonthMMYYYY(p)} H`, cell: ({ getValue }: { getValue: () => unknown }) => formatNumber1(Number(getValue() ?? 0)) });
+                      cols.push({ accessorKey: `${p}_cost`, header: `${formatMonthMMYYYY(p)} Cost`, cell: ({ getValue }: { getValue: () => unknown }) => formatMoney(Number(getValue() ?? 0)) });
                     }
                     return (
                       <>
                         {serviceCostChartRows.length > 0 && (
                           <div className="drill-chart" style={{ marginBottom: 12 }}>
-                            <GroupedBarRows rows={serviceCostChartRows} formatPeriod={(x) => formatMonthMMYYYY(x)} barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')} barLabelFormatter={(y) => y.toLocaleString('en-US')} width={320} labelWidth={120} monthTotals={serviceCostDrillPeriodTotals} labelColumnTitle="Activity" />
+                            <GroupedBarRows rows={serviceCostChartRows} formatPeriod={(x) => formatMonthMMYYYY(x)} barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')} barLabelFormatter={(y) => formatMoney(y)} totalFormatter={formatMoney} width={320} labelWidth={120} monthTotals={serviceCostDrillPeriodTotals} labelColumnTitle="Activity" />
                           </div>
                         )}
                         <DataTable data={rowsWithTotal} columns={cols} searchable={false} pageSize={10} sortable={false} />
