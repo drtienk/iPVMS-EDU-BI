@@ -46,7 +46,7 @@ const TOTAL_COL_WIDTH = 120;
 const ROW_HEIGHT = 92;
 const INNER_HEIGHT = 58;
 const BAR_WIDTH = 12;
-const BAR_CELL_SVG_WIDTH = 56;
+const BAR_CELL_SVG_WIDTH = 104;
 const VALUE_LABEL_GAP = 6;
 const MONTH_LABEL_OFFSET = 14;
 const HEADER_ROW_HEIGHT = 40;
@@ -112,7 +112,7 @@ export function GroupedBarRows({
   const barsGridClass = `bars-grid cols-${numBars}`;
 
   return (
-    <div className="grouped-bar-rows" style={{ width }}>
+    <div className="grouped-bar-rows" style={{ width:'100%' }}>
       {monthTotals.length > 0 && (
         <div
           className="grouped-bar-row grouped-bar-row-header"

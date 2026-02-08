@@ -336,7 +336,8 @@ body {
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  gap: 0;
+  gap: 20px;
+  padding: 12px 12px 16px;
   overflow-x: auto;
   overflow-y: hidden;
   min-height: 280px;
@@ -355,8 +356,7 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 320px;
-  max-width: 420px;
-  flex: 0 0 auto;
+   flex: 0 0 auto;
   border-right: 1px solid var(--border);
   background: white;
   overflow: hidden;
@@ -410,6 +410,7 @@ body {
   padding: 10px 12px 14px;
   overflow: auto;
   max-height: calc(100vh - 220px);
+  width: 100%;          /* ← 新增 */
 }
 
 .drill-panel.inactive { opacity: 0.88; }
@@ -533,8 +534,8 @@ body {
 }
 
 .drilldown-tab {
-  padding: 8px 14px;
-  font-size: 14px;
+  padding: 4px 10px;
+  font-size: 12px;
   border: 1px solid var(--border);
   background: white;
   border-radius: 4px;
@@ -588,6 +589,8 @@ body {
 .grouped-bar-rows {
   margin-top: 8px;
   font-size: 13px;
+  width: 100%;        /* ← 關鍵 */
+  min-width: 100%;
 }
 
 .grouped-bar-rows-empty {
@@ -638,7 +641,7 @@ body {
 
 .grouped-bar-row-chart {
   flex: 1;
-  min-width: 0;
+  min-width: 320px;
 }
 
 /* Multi-period bar grid: middle column widest, more gap */
@@ -671,9 +674,9 @@ body {
 
 /* Level 3 (and any) Total column narrower */
 .grouped-bar-row-total-col.col-total {
-  width: 120px;
-  max-width: 120px;
-  min-width: 120px;
+  width: 80px;
+  max-width: 80px;
+  min-width: 80px;
   text-align: right;
   white-space: nowrap;
 }
