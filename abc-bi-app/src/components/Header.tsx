@@ -85,7 +85,7 @@ export function Header() {
   return (
     <header className="header">
       <Link to={periodNo != null ? `/page0?periodNo=${periodNo}` : '/page0'} className="header-title">
-        <h1>ABC BI</h1>
+        <h1>iPVMS EDU BI</h1>
       </Link>
       <span className="header-period">
         Period: <PeriodSelector periods={periods} refreshKey={refreshToken} onPeriodChange={setPeriodNo} />
