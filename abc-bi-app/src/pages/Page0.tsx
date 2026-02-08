@@ -267,7 +267,7 @@ export function Page0() {
 
   const [selectedPeriodNo, setSelectedPeriodNo] = useState<number | null>(null);
   const [selectedPeriods, setSelectedPeriods] = useState<number[]>([]);
-  const [drilldownMode, setDrilldownMode] = useState<'ranked' | 'hist' | 'product' | 'salesActivityCenter' | 'customer'>('ranked');
+  const [drilldownMode, setDrilldownMode] = useState<'ranked' | 'hist' | 'product' | 'salesActivityCenter' | 'customer'>('customer');
   const [topN, setTopN] = useState(DEFAULT_TOP_N);
   const [showAllRanked, setShowAllRanked] = useState(false);
   const [drilldownRows, setDrilldownRows] = useState<CustomerProfitResultRow[]>([]);
@@ -1116,7 +1116,6 @@ export function Page0() {
                   barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
                   barLabelFormatter={(y) => formatMoney(y)}
                   totalFormatter={formatMoney}
-                  width={400}
                   labelWidth={160}
                   monthTotals={customerMonthTotals}
                   labelColumnTitle="Customer"

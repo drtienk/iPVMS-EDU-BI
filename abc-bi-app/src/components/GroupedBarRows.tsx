@@ -44,8 +44,8 @@ const DEFAULT_WIDTH = 520;
 const LABEL_WIDTH = 140;
 const TOTAL_COL_WIDTH = 120;
 const ROW_HEIGHT = 92;
-const INNER_HEIGHT = 58;
-const BAR_WIDTH = 12;
+const INNER_HEIGHT = 180;
+const BAR_WIDTH = 28;
 const BAR_CELL_SVG_WIDTH = 104;
 const VALUE_LABEL_GAP = 6;
 const MONTH_LABEL_OFFSET = 14;
@@ -121,15 +121,18 @@ export function GroupedBarRows({
           <div className="grouped-bar-row-label" style={{ width: labelWidth, fontWeight: 600 }}>
             {labelColumnTitle}
           </div>
-          <div className={`grouped-bar-row-chart ${barsGridClass}`} style={{ width: barAreaWidth, flexShrink: 0 }}>
-            {periods.map((period, i) => (
-              <div key={i} className="bar-cell" style={{ paddingBottom: 2 }}>
-                <span style={{ fontSize: 10, color: '#555' }}>{formatPeriod(period)}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#333' }}>
-                  {formatTotal(monthTotals[i]?.total ?? 0)}
-                </span>
-              </div>
-            ))}
+          <div className={`grouped-bar-row-chart ${barsGridClass}`} style={{ flex:1, minWidth: 0, paddingRight: 52 }}>
+          {periods.map((period, i) => (
+  <div key={i} className="bar-cell" style={{ paddingBottom: 2 }}>
+    <div style={{ width: BAR_CELL_SVG_WIDTH, margin: '0 auto', textAlign: 'center' }}>
+      <div style={{ fontSize: 10, color: '#555' }}>{formatPeriod(period)}</div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: '#333' }}>
+        {formatTotal(monthTotals[i]?.total ?? 0)}
+      </div>
+    </div>
+  </div>
+))}
+
           </div>
           {useTotalColumn && (
             <div
@@ -182,10 +185,11 @@ export function GroupedBarRows({
                 alignItems: 'center',
                 gap: useTotalColumn ? gap : 0,
                 minWidth: 0,
-                width: useTotalColumn ? barAreaWidth + TOTAL_COL_WIDTH + gap : undefined,
+                flex: 1,
               }}
             >
-            <div className={`grouped-bar-row-chart ${barsGridClass}`} style={{ width: barAreaWidth, flexShrink: 0 }}>
+            <div className={`grouped-bar-row-chart ${barsGridClass}`} 
+            style={{ flex: 1, minWidth: 0, paddingLeft:5}}>
               {row.values.map((v, i) => {
                 const yVal = v.y;
                 const yPixelTop = scaleY(yVal);
@@ -198,9 +202,11 @@ export function GroupedBarRows({
                 return (
                   <div key={i} className="bar-cell">
                     <svg
-                      width={BAR_CELL_SVG_WIDTH}
-                      height={ROW_HEIGHT}
-                      style={{ overflow: 'visible' }}
+                        width="100%"
+                        height={ROW_HEIGHT}
+                        viewBox={`0 0 ${BAR_CELL_SVG_WIDTH} ${ROW_HEIGHT}`}
+                        preserveAspectRatio="xMidYMax meet"
+                        style={{ overflow: 'visible', display: 'block' }}
                     >
                       <g>
                         <rect

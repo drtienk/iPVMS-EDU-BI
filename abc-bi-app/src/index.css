@@ -647,7 +647,7 @@ body {
 /* Multi-period bar grid: middle column widest, more gap */
 .bars-grid {
   display: grid;
-  column-gap: 18px;
+  column-gap: 12px;
   align-items: flex-end;
   min-width: 0;
 }
@@ -657,11 +657,11 @@ body {
 }
 
 .bars-grid.cols-2 {
-  grid-template-columns: 1fr 1.6fr;
+  grid-template-columns: 1fr 1fr;
 }
 
 .bars-grid.cols-3 {
-  grid-template-columns: 1fr 2fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
 }
 
 .bar-cell {
