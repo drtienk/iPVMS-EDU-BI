@@ -189,7 +189,7 @@ export function GroupedBarRows({
               }}
             >
             <div className={`grouped-bar-row-chart ${barsGridClass}`} 
-            style={{ flex: 1, minWidth: 0, paddingLeft:5}}>
+            style={{ flex: 1, minWidth: 0, paddingRight:5}}>
               {row.values.map((v, i) => {
                 const yVal = v.y;
                 const yPixelTop = scaleY(yVal);
