@@ -387,6 +387,33 @@
     border-right: none;
   }
   
+
+  .rail-resizer{
+    width: 10px;
+    flex: 0 0 10px;
+    cursor: col-resize;
+    background: transparent;
+    position: relative;
+  }
+  
+  .rail-resizer::before{
+    content: "";
+    position: absolute;
+    top: 8px;
+    bottom: 8px;
+    left: 50%;
+    width: 2px;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.15);
+    border-radius: 2px;
+  }
+  
+  .rail-resizer:hover::before{
+    background: rgba(0,0,0,0.35);
+  }
+  
+
+
   /* ============ Notion/Airtable-like card panels ============ */
   .drill-panel {
     flex: 1 1 auto;
@@ -745,3 +772,27 @@
   .drilldown-rail-column.level-3 {
     flex: 1 1 auto;
   }
+
+  /* draggable divider */
+.rail-resizer {
+  width: 8px;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  flex: 0 0 8px;
+}
+
+.rail-resizer::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 2px;
+  background: #d0d0d0;
+}
+
+.rail-resizer:hover::before {
+  background: #9e9e9e;
+}

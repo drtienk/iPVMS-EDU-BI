@@ -256,6 +256,9 @@ function buildDrilldownByCustomer(
 }
 
 export function Page0() {
+  const [w1, setW1] = useState(420);
+  const [w2, setW2] = useState(520);
+
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { refreshToken } = useRefreshContext();
@@ -300,6 +303,29 @@ export function Page0() {
   const [drilldown2Message, setDrilldown2Message] = useState<string | null>(null);
   const [loadingDrilldown, setLoadingDrilldown] = useState(false);
   const [errorDrilldown, setErrorDrilldown] = useState<string | null>(null);
+
+  const startResize12 = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW1 = w1;
+    const startW2 = w2;
+  
+    const onMove = (ev: MouseEvent) => {
+      const dx = ev.clientX - startX;
+      setW1(Math.max(280, startW1 + dx));
+      setW2(Math.max(360, startW2 - dx));
+    };
+  
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+  
+
 
   const railRef = useRef<HTMLDivElement>(null);
   const activeLevel = serviceCostDrill != null ? 3 : (customerDrill != null || drilldown2 != null) ? 2 : 1;
@@ -969,7 +995,11 @@ export function Page0() {
         <section className="trend-panel drilldown-panel">
           <div ref={railRef} className="drilldown-rail drill-rail">
             {/* Column 1: Level 1 — By Customer / By Product / By SAC / Ranked / Distribution */}
-            <div className={`drill-panel drilldown-rail-column level-1 ${activeLevel === 1 ? 'active' : 'inactive'} enter`}>
+            <div
+  className={`drill-panel drilldown-rail-column level-1 ${activeLevel === 1 ? 'active' : 'inactive'} enter`}
+  style={{ width: w1, flex: '0 0 auto' }}
+>
+
               <div className="drill-panel-header drilldown-rail-column-header">
                 <h3 className="drilldown-title drill-panel-title" style={{ margin: 0 }}>
                   {selectedPeriods.length === 0
@@ -1208,12 +1238,19 @@ export function Page0() {
             </>
           )}
 
-              </div>
+</div>
             </div>
+
+            {/* Resizer between col-1 and col-2 (only when col-2 exists) */}
+            {(customerDrill != null || drilldown2 != null) && (
+              <div className="rail-resizer" onMouseDown={startResize12} />
+            )}
 
             {/* Column 2: Level 2 — Customer metrics (Customer path) or SAC → Product/Customer */}
             {customerDrill != null && (
-              <div className="drilldown-rail-column">
+
+  <div className="drilldown-rail-column" style={{ width: w2, flex: '0 0 auto' }}>
+
                 <div className="drilldown-rail-column-header">
                   <span>Customer: {customerDrill.customerName}</span>
                   <button
@@ -1304,8 +1341,12 @@ export function Page0() {
                 </div>
               </div>
             )}
-            {customerDrill == null && drilldown2 != null && (
-              <div className={`drill-panel drilldown-rail-column level-2 ${activeLevel === 2 ? 'active' : 'inactive'} enter`}>
+           {customerDrill == null && drilldown2 != null && (
+  <div
+    className={`drill-panel drilldown-rail-column level-2 ${activeLevel === 2 ? 'active' : 'inactive'} enter`}
+    style={{ width: w2, flex: '0 0 auto' }}
+  >
+
                 <div className="drill-panel-header drilldown-rail-column-header">
                   <span className="drill-panel-title">{drilldown2.salesActivityCenterKey} → {drilldown2Mode === 'product' ? 'Product' : 'Customer'}</span>
                   <button type="button" className="drilldown-rail-close" onClick={() => setDrilldown2(null)}>Close</button>
