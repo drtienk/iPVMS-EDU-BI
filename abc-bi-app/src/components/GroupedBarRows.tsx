@@ -49,7 +49,7 @@ const BAR_WIDTH = 28;
 const BAR_CELL_SVG_WIDTH = 104;
 const VALUE_LABEL_GAP = 6;
 const MONTH_LABEL_OFFSET = 14;
-const HEADER_ROW_HEIGHT = 40;
+const HEADER_ROW_HEIGHT = 60;
 const BASELINE_FRAC = 0.5;
 
 const DEFAULT_BAR_COLOR = (y: number) => (y < 0 ? '#C62828' : '#2E7D32');
@@ -199,6 +199,7 @@ export function GroupedBarRows({
                 const fill = barColor(yVal);
                 const barCenterX = BAR_CELL_SVG_WIDTH / 2;
                 const labelY = (yVal >= 0 ? yPixelTop : barY0) - VALUE_LABEL_GAP;
+                
                 return (
                   <div key={i} className="bar-cell">
                     <svg

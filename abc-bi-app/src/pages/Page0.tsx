@@ -195,7 +195,8 @@ function buildCustomerNameMap(rowsByPeriod: CustomerProfitResultRow[][]): Map<st
 function buildDrilldownByCustomer(
   resultsByPeriod: CustomerProfitResultRow[][],
   selectedPeriods: number[],
-  topN: number
+  topN: number,
+  sortAsc: boolean = false
 ): { rows: GroupedBarRow[]; monthTotals: { period: number; total: number }[] } {
   const customerNameMap = buildCustomerNameMap(resultsByPeriod);
   const byPeriod = new Map<number, Map<string, number>>();
@@ -217,7 +218,7 @@ function buildDrilldownByCustomer(
     sum: selectedPeriods.reduce((s, p) => s + Math.abs(byPeriod.get(p)?.get(key) ?? 0), 0),
     lastPeriodProfit: byPeriod.get(lastPeriod ?? 0)?.get(key) ?? 0,
   }));
-  customerTotals.sort((a, b) => b.lastPeriodProfit - a.lastPeriodProfit);
+  customerTotals.sort((a, b) => sortAsc ? a.lastPeriodProfit - b.lastPeriodProfit : b.lastPeriodProfit - a.lastPeriodProfit);
   const topKeys = new Set(customerTotals.slice(0, topN).map((x) => x.key));
   const rows: GroupedBarRow[] = [];
   for (const { key } of customerTotals.slice(0, topN)) {
@@ -268,6 +269,7 @@ export function Page0() {
   const [selectedPeriodNo, setSelectedPeriodNo] = useState<number | null>(null);
   const [selectedPeriods, setSelectedPeriods] = useState<number[]>([]);
   const [drilldownMode, setDrilldownMode] = useState<'ranked' | 'hist' | 'product' | 'salesActivityCenter' | 'customer'>('customer');
+  const [customerSortMode, setCustomerSortMode] = useState<'top' | 'bottom'>('top');
   const [topN, setTopN] = useState(DEFAULT_TOP_N);
   const [showAllRanked, setShowAllRanked] = useState(false);
   const [drilldownRows, setDrilldownRows] = useState<CustomerProfitResultRow[]>([]);
@@ -563,7 +565,8 @@ export function Page0() {
         const { rows, monthTotals } = buildDrilldownByCustomer(
           results,
           selectedPeriods,
-          DRILLDOWN_TOP_CUSTOMERS_LAYER1
+          DRILLDOWN_TOP_CUSTOMERS_LAYER1,
+          customerSortMode === 'bottom'
         );
         setGroupedCustomerRows(rows);
         setCustomerMonthTotals(monthTotals);
@@ -574,10 +577,10 @@ export function Page0() {
           setCustomerMonthTotals([]);
         }
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedPeriods]);
+      return () => {
+        cancelled = true;
+      };
+    }, [selectedPeriods, customerSortMode]);
 
   useEffect(() => {
     if (drilldownMode !== 'customer' || customerMonthTotals.length === 0 || aggregates.length === 0) return;
@@ -1111,8 +1114,24 @@ export function Page0() {
             </>
           )}
 
-          {!loadingDrilldown && !errorDrilldown && drilldownMode === 'customer' && (
+{!loadingDrilldown && !errorDrilldown && drilldownMode === 'customer' && (
             <>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <button
+                  type="button"
+                  className={`btn ${customerSortMode === 'top' ? 'btn-primary' : ''}`}
+                  onClick={() => setCustomerSortMode('top')}
+                >
+                  Top 20
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${customerSortMode === 'bottom' ? 'btn-primary' : ''}`}
+                  onClick={() => setCustomerSortMode('bottom')}
+                >
+                  Bottom 20
+                </button>
+              </div>
               {groupedCustomerRows.length > 0 ? (
                 <GroupedBarRows
                   rows={groupedCustomerRows}
