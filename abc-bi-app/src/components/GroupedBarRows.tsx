@@ -198,7 +198,12 @@ export function GroupedBarRows({
                 const yRect = yVal >= 0 ? yPixelTop : yPixelBase;
                 const fill = barColor(yVal);
                 const barCenterX = BAR_CELL_SVG_WIDTH / 2;
-                const labelY = (yVal >= 0 ? yPixelTop : barY0) - VALUE_LABEL_GAP;
+                const labelInside = h >= 22;
+                const labelY = labelInside ? (yRect + h / 3) : ((yVal >= 0 ? yPixelTop : barY0) - VALUE_LABEL_GAP);
+                const labelText = barLabelFormatter(yVal);
+                const approxWidth = String(labelText).length * 8 + 10; // 黑底寬度估算
+
+
                 
                 return (
                   <div key={i} className="bar-cell">
@@ -230,24 +235,30 @@ export function GroupedBarRows({
                             }
                           }}
                         />
+                        
+                         
+                        {/* 黑底（先畫） */}
+                        <rect
+                          x={barCenterX - approxWidth / 2}
+                          y={labelY - 10}
+                          width={approxWidth}
+                          height={15}
+                          rx={3}
+                          fill="rgba(0,0,0,0.75)"
+                        />
+
+                        {/* 白字（後畫） */}
                         <text
                           x={barCenterX}
                           y={labelY}
                           textAnchor="middle"
-                          fontSize={10}
-                          fill={yVal < 0 ? '#C62828' : '#2E7D32'}
+                          dominantBaseline="middle"
+                          fontSize={15}
+                          fill="#fff"
                         >
-                          {barLabelFormatter(yVal)}
+                          {labelText}
                         </text>
-                        <text
-                          x={barCenterX}
-                          y={Math.min(yRect + h + 16, INNER_HEIGHT + MONTH_LABEL_OFFSET)}
-                          textAnchor="middle"
-                          fontSize={9}
-                          fill="#555"
-                        >
-                          {formatPeriod(v.x)}
-                        </text>
+
                       </g>
                     </svg>
                   </div>
