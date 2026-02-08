@@ -1253,7 +1253,11 @@ export function Page0() {
                             width={320}
                             labelWidth={120}
                             monthTotals={customerMetricMonthTotals}
-                            labelColumnTitle="Metric"
+                            onRowClick={({ label }) => {
+                              if (label === 'Service Cost') {
+                                setServiceCostDrill({ customerId: customerDrill.customerId, customerName: customerDrill.customerName });
+                              }
+                            }}
                           />
                         </div>
                         <DataTable
