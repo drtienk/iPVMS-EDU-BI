@@ -58,7 +58,7 @@ export function PeriodSelector({ onPeriodChange, periods: externalPeriods, refre
       value={periodNo ?? ''}
       onChange={handleSelect}
     >
-      {periods.length === 0 && <option value="">Upload Your Report results</option>}
+      {periods.length === 0 && <option value="">Upload Your Report Results</option>}
       {periods.map((p) => (
         <option key={p.periodNo} value={p.periodNo}>
           {p.periodNo}
