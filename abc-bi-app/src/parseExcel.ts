@@ -45,26 +45,36 @@ function sheetToRows(sheet: XLSX.WorkSheet): Record<string, unknown>[] {
   return data.map(trimKeys);
 }
 
-function extractPeriodNo(parsed: Record<string, Record<string, unknown>[]>): number {
+/** 從有 PeriodNo 的 sheets 及 IncomeStatment 收集所有 periodNo，去重、升冪排序 */
+function extractPeriodNos(parsed: Record<string, Record<string, unknown>[]>): number[] {
+  const set = new Set<number>();
   for (const name of REQUIRED_SHEETS) {
     if (name === 'IncomeStatment') continue;
     const rows = parsed[name];
-    if (rows && rows.length > 0 && rows[0] && rows[0]['PeriodNo'] != null) {
-      const n = Number(rows[0]['PeriodNo']);
-      if (!isNaN(n)) return n;
+    if (rows && rows.length > 0) {
+      for (const row of rows) {
+        if (row && row['PeriodNo'] != null) {
+          const n = Number(row['PeriodNo']);
+          if (!isNaN(n)) set.add(n);
+        }
+      }
     }
   }
   const income = parsed['IncomeStatment'];
-  if (income && income.length > 0 && income[0]) {
-    const y = Number(income[0]['Year']);
-    const m = Number(income[0]['Month']);
-    if (!isNaN(y) && !isNaN(m)) return y * 100 + m;
+  if (income && income.length > 0) {
+    for (const row of income) {
+      if (row) {
+        const y = Number(row['Year']);
+        const m = Number(row['Month']);
+        if (!isNaN(y) && !isNaN(m)) set.add(y * 100 + m);
+      }
+    }
   }
-  return 0;
+  return Array.from(set).sort((a, b) => a - b);
 }
 
 export interface ParseResult {
-  periodNo: number;
+  periodNos: number[];
   sheetStatus: Record<string, boolean>;
   normalizedData: NormalizedData;
 }
@@ -90,7 +100,7 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
   }
 
   const normalizedData = normalizeAll(parsed);
-  const periodNo = extractPeriodNo(parsed);
+  const periodNos = extractPeriodNos(parsed);
 
-  return { periodNo, sheetStatus, normalizedData };
+  return { periodNos, sheetStatus, normalizedData };
 }
