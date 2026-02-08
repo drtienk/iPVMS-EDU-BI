@@ -48,15 +48,12 @@ const INNER_HEIGHT = 180;
 const BAR_WIDTH = 28;
 const BAR_CELL_SVG_WIDTH = 104;
 const VALUE_LABEL_GAP = 6;
-const MONTH_LABEL_OFFSET = 14;
 const HEADER_ROW_HEIGHT = 60;
 const BASELINE_FRAC = 0.5;
 
 const DEFAULT_BAR_COLOR = (y: number) => (y < 0 ? '#C62828' : '#2E7D32');
 
-function formatNumber(value: number): string {
-  return value.toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 0 });
-}
+ 
 
 export function GroupedBarRows({
   rows,
@@ -64,13 +61,14 @@ export function GroupedBarRows({
   barColor = DEFAULT_BAR_COLOR,
   barLabelFormatter = (y) => y.toLocaleString('en-US', { maximumFractionDigits: 2 }),
   totalFormatter,
-  width = DEFAULT_WIDTH,
+  width: _width = DEFAULT_WIDTH,
   labelWidth = LABEL_WIDTH,
   monthTotals = [],
   onBarClick,
   onRowClick,
   labelColumnTitle = 'Sales Activity Center',
 }: GroupedBarRowsProps) {
+
   if (rows.length === 0) {
     return (
       <div className="grouped-bar-rows grouped-bar-rows-empty">
@@ -81,7 +79,6 @@ export function GroupedBarRows({
 
   const useTotalColumn = monthTotals.length > 0 || rows.some((r) => r.total !== undefined && r.total !== null);
   const gap = 12;
-  const barAreaWidth = width - labelWidth - (useTotalColumn ? TOTAL_COL_WIDTH : 0) - gap * 2;
   const numBars = Math.max(1, rows[0]?.values.length ?? 0);
   const baseline = INNER_HEIGHT * BASELINE_FRAC;
   const barWidth = Math.min(BAR_WIDTH, BAR_CELL_SVG_WIDTH - 8);

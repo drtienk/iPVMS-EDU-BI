@@ -278,7 +278,7 @@ export function Page0() {
   const [showAllRanked, setShowAllRanked] = useState(false);
   const [drilldownRows, setDrilldownRows] = useState<CustomerProfitResultRow[]>([]);
   const [histBins, setHistBins] = useState<HistBin[]>([]);
-  const [productRows, setProductRows] = useState<{ productName: string; profit: number }[]>([]);
+  const [_productRows, setProductRows] = useState<{ productName: string; profit: number }[]>([]);
   const [productDataAvailable, setProductDataAvailable] = useState(false);
   const [groupedProductRows, setGroupedProductRows] = useState<GroupedBarRow[]>([]);
   const [groupedSalesActivityCenterRows, setGroupedSalesActivityCenterRows] = useState<GroupedBarRow[]>([]);
@@ -707,7 +707,7 @@ export function Page0() {
   useEffect(() => {
     if (serviceCostDrill == null || customerDrill == null || serviceCostDrill.customerId !== customerDrill.customerId) return;
     if (serviceCostDrillPeriodTotals.length === 0 || customerDrillMetrics.length === 0) return;
-    serviceCostDrillPeriodTotals.forEach(({ periodNo, totalCost }, i) => {
+    serviceCostDrillPeriodTotals.forEach(({ periodNo, totalCost }) => {
       const expected = customerDrillMetrics.find((m) => m.periodNo === periodNo)?.serviceCost ?? 0;
       if (Math.abs(totalCost - expected) > 1e-6) {
         console.warn('[Service Cost Drill] period total cost !== CustomerProfitResult.ServiceCost', { periodNo, totalCost, expected });
@@ -1451,7 +1451,7 @@ export function Page0() {
                       <>
                         {serviceCostChartRows.length > 0 && (
                           <div className="drill-chart" style={{ marginBottom: 12 }}>
-                            <GroupedBarRows rows={serviceCostChartRows} formatPeriod={(x) => formatMonthMMYYYY(x)} barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')} barLabelFormatter={(y) => formatMoney(y)} totalFormatter={formatMoney} width={320} labelWidth={120} monthTotals={serviceCostDrillPeriodTotals} labelColumnTitle="Activity" />
+                            <GroupedBarRows rows={serviceCostChartRows} formatPeriod={(x) => formatMonthMMYYYY(x)} barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')} barLabelFormatter={(y) => formatMoney(y)} totalFormatter={formatMoney} width={320} labelWidth={120} monthTotals={serviceCostDrillPeriodTotals.map(({ periodNo, totalCost }) => ({ period: periodNo, total: totalCost }))} labelColumnTitle="Activity" />
                           </div>
                         )}
                         <DataTable data={rowsWithTotal} columns={cols} searchable={false} pageSize={10} sortable={false} />
