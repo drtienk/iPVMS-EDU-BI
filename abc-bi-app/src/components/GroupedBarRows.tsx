@@ -241,7 +241,7 @@ export function GroupedBarRows({
                         </text>
                         <text
                           x={barCenterX}
-                          y={INNER_HEIGHT + MONTH_LABEL_OFFSET}
+                          y={Math.min(yRect + h + 16, INNER_HEIGHT + MONTH_LABEL_OFFSET)}
                           textAnchor="middle"
                           fontSize={9}
                           fill="#555"
