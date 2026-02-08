@@ -906,6 +906,10 @@ export function Page0() {
                 setSelectedPeriodNo(p);
                 const periodList = aggregates.map((a) => a.periodNo);
                 setSelectedPeriods(getPeriodRange(periodList, p));
+                 // 新 drilldown 出現後，自動捲到 drilldown 區塊
+  requestAnimationFrame(() => {
+    railRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
               }}
               />
             </div>

@@ -355,8 +355,8 @@ body {
 .drilldown-rail-column {
   display: flex;
   flex-direction: column;
-  min-width: 320px;
-   flex: 0 0 auto;
+  min-width: 0;        /* ← 改這行：允許縮小 */
+  flex: 1 1 auto;   
   border-right: 1px solid var(--border);
   background: white;
   overflow: hidden;
@@ -368,7 +368,7 @@ body {
 
 /* Notion/Airtable-like card panels */
 .drill-panel {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   background: #fff;
   border: 1px solid #e5e5e5;
   border-radius: 12px;
@@ -378,10 +378,10 @@ body {
   border-right: none;
 }
 
-.drill-panel.level-1 { width: 520px; }
-.drill-panel.level-2 { width: 480px; }
-.drill-panel.level-3 { width: 440px; }
-.drill-panel.level-4 { width: 400px; }
+.drill-panel.level-1 { width: 100%; }
+.drill-panel.level-2 { width: 100%; }
+.drill-panel.level-3 { width: 100%; }
+.drill-panel.level-4 { width: 100%; }
 
 .drill-panel-header {
   position: sticky;
@@ -692,3 +692,32 @@ body {
   font-weight: bold;
   border-top: 2px solid #ddd;
 }
+
+/* === Drilldown rail sizing rules === */
+
+/* 外層必須是 flex，且不可水平捲動整頁 */
+.drilldown-rail {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Level 1：吃剩餘空間（會被擠小） */
+.drilldown-rail-column.level-1 {
+  flex: 1 1 0;
+  min-width: 320px;   /* 可調：320~420 */
+}
+
+/* Level 2 / 3：固定寬度（出現時會把 level-1 擠小） */
+.drilldown-rail-column.level-2 {
+  flex: 2 1 0;
+  min-width: 420px;    /* 可調 */
+}
+
+.drilldown-rail-column.level-3 {
+  flex: 1 1 auto;    /* 可調 */
+  }
+
+ 
+
