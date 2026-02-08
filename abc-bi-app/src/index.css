@@ -1,723 +1,747 @@
-:root {
-  --primary: #1976d2;
-  --success: #4caf50;
-  --danger: #f44336;
-  --warning: #ff9800;
-  --bg: #f5f5f5;
-  --border: #e0e0e0;
-}
+/* ============================================
+   ABC BI App – index.css（已改善可讀性版本）
+   
+   🔧 改動摘要：
+   1. body 基底字體從瀏覽器預設 16px → 16px 明確設定
+   2. 所有 drill-down 面板內文字從 13px → 15px
+   3. drill-down 面板標題從 14px → 17px
+   4. 表格內容從 12-13px → 15px
+   5. 客戶名稱欄位加寬，避免截斷
+   6. Grouped bar rows 標籤欄位加寬
+   7. 各面板內文字行高加大，減少擁擠感
+   ============================================ */
 
-* {
-  box-sizing: border-box;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--bg);
-  margin: 0;
-}
-
-/* Header */
-.header {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 12px 24px;
-  background: white;
-  border-bottom: 1px solid var(--border);
-}
-
-.header h1 {
-  margin: 0;
-  font-size: 20px;
-  color: var(--primary);
-}
-
-.header-title {
-  color: inherit;
-  text-decoration: none;
-}
-
-.header-period {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.header-delete-period {
-  padding: 4px 8px;
-  font-size: 12px;
-  color: var(--danger);
-  background: transparent;
-  border: 1px solid var(--danger);
-  border-radius: 4px;
-  cursor: pointer;
-}
-.header-delete-period:hover:not(:disabled) {
-  background: var(--danger);
-  color: white;
-}
-.header-delete-period:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.header-refresh {
-  padding: 4px 8px;
-  font-size: 12px;
-  color: var(--primary);
-  background: transparent;
-  border: 1px solid var(--primary);
-  border-radius: 4px;
-  cursor: pointer;
-}
-.header-refresh:hover {
-  background: var(--primary);
-  color: white;
-}
-
-.upload-progress {
-  font-size: 12px;
-  color: #666;
-  margin-left: 8px;
-}
-
-.header-delete-message {
-  font-size: 12px;
-  color: var(--success);
-}
-
-.period-select {
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-/* Breadcrumb */
-.breadcrumb {
-  padding: 12px 24px;
-  background: white;
-  border-bottom: 1px solid var(--border);
-  font-size: 14px;
-}
-
-.breadcrumb a {
-  color: var(--primary);
-  text-decoration: none;
-}
-
-.breadcrumb a:hover {
-  text-decoration: underline;
-}
-
-.breadcrumb-sep {
-  color: #666;
-}
-
-.breadcrumb-current {
-  color: #333;
-}
-
-/* Trend panel (Page0) */
-.trend-panel {
-  padding: 16px 24px;
-  margin: 0 24px 16px;
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-
-.trend-panel-title {
-  margin: 0 0 12px;
-  font-size: 16px;
-  color: #333;
-}
-
-.trend-panel-message {
-  margin: 0;
-  color: #666;
-  font-size: 14px;
-}
-
-.trend-panel-controls {
-  margin-bottom: 12px;
-}
-
-.trend-metric-select {
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.simple-chart {
-  margin-top: 8px;
-}
-
-.simple-chart-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #888;
-  font-size: 14px;
-}
-
-/* Dashboard 2x2 grid (Page0) */
-.dashboard-section {
-  margin-bottom: 24px;
-}
-
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-  margin-top: 12px;
-}
-
-@media (max-width: 720px) {
+   :root {
+    --primary: #1976d2;
+    --success: #4caf50;
+    --danger: #f44336;
+    --warning: #ff9800;
+    --bg: #f5f5f5;
+    --border: #e0e0e0;
+  }
+  
+  * {
+    box-sizing: border-box;
+  }
+  
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    margin: 0;
+    font-size: 16px;           /* 🔧 明確設定基底字體大小 */
+    line-height: 1.5;          /* 🔧 新增：全域行高，文字不擠 */
+  }
+  
+  /* ============ Header ============ */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 12px 24px;
+    background: white;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .header h1 {
+    margin: 0;
+    font-size: 22px;           /* 🔧 從 20px → 22px */
+    color: var(--primary);
+  }
+  
+  .header-title {
+    color: inherit;
+    text-decoration: none;
+  }
+  
+  .header-period {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .header-delete-period {
+    padding: 4px 8px;
+    font-size: 13px;           /* 🔧 從 12px → 13px */
+    color: var(--danger);
+    background: transparent;
+    border: 1px solid var(--danger);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .header-delete-period:hover:not(:disabled) {
+    background: var(--danger);
+    color: white;
+  }
+  .header-delete-period:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .header-refresh {
+    padding: 4px 8px;
+    font-size: 13px;           /* 🔧 從 12px → 13px */
+    color: var(--primary);
+    background: transparent;
+    border: 1px solid var(--primary);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .header-refresh:hover {
+    background: var(--primary);
+    color: white;
+  }
+  
+  .upload-progress {
+    font-size: 13px;           /* 🔧 從 12px → 13px */
+    color: #666;
+    margin-left: 8px;
+  }
+  
+  .header-delete-message {
+    font-size: 13px;           /* 🔧 從 12px → 13px */
+    color: var(--success);
+  }
+  
+  .period-select {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 15px;           /* 🔧 從 14px → 15px */
+  }
+  
+  /* ============ Breadcrumb ============ */
+  .breadcrumb {
+    padding: 12px 24px;
+    background: white;
+    border-bottom: 1px solid var(--border);
+    font-size: 15px;           /* 🔧 從 14px → 15px */
+  }
+  
+  .breadcrumb a {
+    color: var(--primary);
+    text-decoration: none;
+  }
+  
+  .breadcrumb a:hover {
+    text-decoration: underline;
+  }
+  
+  .breadcrumb-sep {
+    color: #666;
+  }
+  
+  .breadcrumb-current {
+    color: #333;
+  }
+  
+  /* ============ Trend panel (Page0) ============ */
+  .trend-panel {
+    padding: 16px 24px;
+    margin: 0 24px 16px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 1.05rem;        /* 🔧 從 1.15rem 微調 */
+  }
+  
+  .trend-panel-title {
+    margin: 0 0 12px;
+    font-size: 1.3rem;         /* 🔧 從 1.4rem 微調 */
+    color: #333;
+  }
+  
+  .trend-panel-message {
+    margin: 0;
+    color: #666;
+    font-size: 15px;           /* 🔧 從 14px → 15px */
+  }
+  
+  .trend-panel-controls {
+    margin-bottom: 12px;
+  }
+  
+  .trend-metric-select {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 15px;           /* 🔧 從 14px → 15px */
+  }
+  
+  .simple-chart {
+    margin-top: 8px;
+  }
+  
+  .simple-chart-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #888;
+    font-size: 15px;           /* 🔧 從 14px → 15px */
+  }
+  
+  /* ============ Dashboard 2x2 grid (Page0) ============ */
+  .dashboard-section {
+    margin-bottom: 24px;
+  }
+  
   .dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-top: 12px;
+  }
+  
+  @media (max-width: 720px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  .dashboard-chart {
+    background: #fafafa;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    min-height: 240px;
+  }
+  
+  .dashboard-chart-title {
+    margin: 0 0 8px;
+    font-size: 16px;           /* 🔧 從 14px → 16px，圖表標題更醒目 */
+    font-weight: 600;
+    color: #333;
+  }
+  
+  /* ============ Table ============ */
+  .table-container {
+    padding: 24px;
+  }
+  
+  .search-input {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    width: 300px;
+    margin-bottom: 16px;
+    font-size: 15px;           /* 🔧 新增：搜尋框字體 */
+  }
+  
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  .table th {
+    background: var(--primary);
+    color: white;
+    padding: 12px 16px;
+    text-align: left;
+    cursor: pointer;
+    user-select: none;
+    font-size: 15px;           /* 🔧 新增：表頭字體 */
+  }
+  
+  .table th:hover {
+    background: #1565c0;
+  }
+  
+  .table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 15px;           /* 🔧 新增：表格內容字體 */
+    line-height: 1.4;          /* 🔧 新增：行高 */
+  }
+  
+  .table tbody tr:hover {
+    background: #e3f2fd;
+  }
+  
+  .table tr.clickable:hover {
+    cursor: pointer;
+  }
+  
+  .table tbody tr:last-child td {
+    border-bottom: none;
+  }
+  
+  /* Profit colors */
+  .profit-positive {
+    color: var(--success);
+    font-weight: 500;
+  }
+  
+  .profit-negative {
+    color: var(--danger);
+    font-weight: 500;
+  }
+  
+  /* ============ Pagination ============ */
+  .pagination {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  
+  .pagination button {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;           /* 🔧 新增 */
+  }
+  
+  .pagination button:hover:not(:disabled) {
+    background: #f5f5f5;
+  }
+  
+  .pagination button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  /* ============ Buttons ============ */
+  .btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 15px;           /* 🔧 從 14px → 15px */
+  }
+  
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+  
+  .btn-primary:hover {
+    background: #1565c0;
+  }
+  
+  /* ============ Sheet Status ============ */
+  .sheet-status {
+    font-size: 13px;           /* 🔧 從 12px → 13px */
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+  
+  .sheet-status.ok {
+    background: #e8f5e9;
+    color: var(--success);
+  }
+  
+  .sheet-status.error {
+    background: #ffebee;
+    color: var(--danger);
+  }
+  
+  /* ============ Page actions ============ */
+  .page-actions {
+    padding: 16px 24px;
+    background: white;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  /* ============ Drilldown Panel (Page0) ============ */
+  .drilldown-panel {
+    margin-top: 16px;
+  }
+  
+  /* ============ Horizontal Drilldown Rail ============ */
+  .drilldown-rail {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 20px;
+    padding: 12px 12px 16px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    min-height: 280px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fafafa;
+  }
+  
+  .drill-rail {
+    gap: 20px;
+    padding: 12px 12px 16px;
+    scroll-behavior: smooth;
+  }
+  
+  .drilldown-rail-column {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1 1 auto;
+    border-right: 1px solid var(--border);
+    background: white;
+    overflow: hidden;
+  }
+  
+  .drilldown-rail-column:last-child {
+    border-right: none;
+  }
+  
+  /* ============ Notion/Airtable-like card panels ============ */
+  .drill-panel {
+    flex: 1 1 auto;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+    padding: 0;
+    min-height: 200px;
+    border-right: none;
+    font-size: 15px;           /* 🔧 新增：drill 面板基底字體 */
+  }
+  
+  .drill-panel.level-1 { width: 100%; }
+  .drill-panel.level-2 { width: 100%; }
+  .drill-panel.level-3 { width: 100%; }
+  .drill-panel.level-4 { width: 100%; }
+  
+  .drill-panel-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #fff;
+    border-bottom: 1px solid #eee;
+    padding: 12px 14px;        /* 🔧 從 10px 12px → 12px 14px，更寬敞 */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  
+  .drill-panel-title {
+    font-size: 17px;           /* 🔧 從 14px → 17px，面板標題更大更清楚 */
+    font-weight: 600;
+    line-height: 1.3;          /* 🔧 從 1.2 → 1.3 */
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .drill-panel-body {
+    padding: 12px 14px 16px;   /* 🔧 從 10px 12px 14px → 12px 14px 16px */
+    overflow: auto;
+    max-height: calc(100vh - 220px);
+    width: 100%;
+  }
+  
+  .drill-panel.inactive { opacity: 0.88; }
+  .drill-panel.active {
+    opacity: 1;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  }
+  
+  .drill-panel.enter {
+    animation: drillEnter 200ms ease-out;
+  }
+  
+  @keyframes drillEnter {
+    from { opacity: 0; transform: translateX(14px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  
+  /* ============ Table inside drill panels ============ */
+  .drill-panel table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  
+  .drill-panel th,
+  .drill-panel td {
+    font-size: 15px;           /* 🔧 從 13px → 15px，面板內表格文字加大 */
+    padding: 10px 12px;
+    vertical-align: top;
+    line-height: 1.4;          /* 🔧 新增：行高 */
+  }
+  
+  .drill-panel td.num,
+  .drill-panel th.num {
+    white-space: nowrap;
+    text-align: right;
+  }
+  
+  .drill-panel td.label,
+  .drill-panel th.label {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  
+  .drill-panel .table-controls,
+  .drill-panel .pagination {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  
+  .drilldown-rail-column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    background: #f5f5f5;
+    font-size: 15px;           /* 🔧 從 14px → 15px */
+    font-weight: 600;
+  }
+  
+  .drill-panel-header.drilldown-rail-column-header {
+    background: #fff;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .drilldown-rail-column-header .drilldown-rail-close {
+    padding: 4px 10px;
+    font-size: 14px;           /* 🔧 從 13px → 14px */
+    border: 1px solid var(--border);
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .drilldown-rail-column-header .drilldown-rail-close:hover {
+    background: #eee;
+  }
+  
+  .drilldown-rail-column-body {
+    flex: 1;
+    padding: 12px;
+    overflow-y: auto;
+    overflow-x: auto;
+  }
+  
+  .drilldown-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .drilldown-title {
+    margin: 0;
+    font-size: 18px;           /* 🔧 從 16px → 18px，下鑽主標題更大 */
+    font-weight: 600;
+  }
+  
+  .drilldown-close {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;           /* 🔧 新增 */
+  }
+  
+  .drilldown-close:hover {
+    background: #f5f5f5;
+  }
+  
+  .drilldown-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+  
+  .drilldown-tab {
+    padding: 6px 12px;         /* 🔧 從 4px 10px → 6px 12px，tab 按鈕更大更好點 */
+    font-size: 14px;           /* 🔧 從 12px → 14px */
+    border: 1px solid var(--border);
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #555;
+  }
+  
+  .drilldown-tab:hover:not(.disabled) {
+    background: #f5f5f5;
+  }
+  
+  .drilldown-tab.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+  
+  .drilldown-tab.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .drill-chart {
+    margin-bottom: 12px;
+  }
+  
+  .drilldown-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 12px;
+    font-size: 15px;           /* 🔧 從 14px → 15px */
+    color: #333;
+  }
+  
+  .top-n-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .top-n-row .top-n-select {
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 15px;           /* 🔧 從 14px → 15px */
+  }
+  
+  /* ============ Grouped bar rows (multi-period drill-down) ============ */
+  .grouped-bar-rows {
+    margin-top: 8px;
+    font-size: 15px;           /* 🔧 從 13px → 15px，最關鍵！客戶名稱/數值都變大 */
+    width: 100%;
+    min-width: 100%;
+  }
+  
+  .grouped-bar-rows-empty {
+    color: #666;
+    padding: 12px 0;
+  }
+  
+  .grouped-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    min-height: 56px;          /* 🔧 從 52px → 56px，每列更高一點 */
+  }
+  
+  .grouped-bar-row-clickable:hover {
+    background: rgba(25, 118, 210, 0.06);
+  }
+  
+  .grouped-bar-row-label {
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #333;
+    min-width: 180px;          /* 🔧 新增：客戶名稱欄位最小寬度，避免被擠太窄 */
+  }
+  
+  /* Drill-down: customer name full display, allow 2-line wrap */
+  .drill-panel .grouped-bar-row-label {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    text-overflow: ellipsis;
+    min-width: 180px;          /* 🔧 從 160px → 180px，客戶名稱欄更寬 */
+    font-size: 15px;           /* 🔧 新增：確保面板內名稱也是 15px */
+    line-height: 1.4;          /* 🔧 新增 */
+  }
+  
+  .drill-panel .grouped-bar-row:not(.grouped-bar-row-header) {
+    min-height: 56px;          /* 🔧 從 52px → 56px */
+    height: auto;
+    align-items: flex-start;
+    padding-top: 8px;          /* 🔧 從 6px → 8px */
+    padding-bottom: 8px;       /* 🔧 從 6px → 8px */
+  }
+  
+  .grouped-bar-row-chart {
+    flex: 1;
+    min-width: 320px;
+  }
+  
+  /* Multi-period bar grid */
+  .bars-grid {
+    display: grid;
+    column-gap: 12px;
+    align-items: flex-end;
+    min-width: 0;
+  }
+  
+  .bars-grid.cols-1 {
     grid-template-columns: 1fr;
   }
-}
-
-.dashboard-chart {
-  background: #fafafa;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 12px;
-  min-height: 240px;
-}
-
-.dashboard-chart-title {
-  margin: 0 0 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-}
-
-/* Table */
-.table-container {
-  padding: 24px;
-}
-
-.search-input {
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  width: 300px;
-  margin-bottom: 16px;
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.table th {
-  background: var(--primary);
-  color: white;
-  padding: 12px 16px;
-  text-align: left;
-  cursor: pointer;
-  user-select: none;
-}
-
-.table th:hover {
-  background: #1565c0;
-}
-
-.table td {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-}
-
-.table tbody tr:hover {
-  background: #e3f2fd;
-}
-
-.table tr.clickable:hover {
-  cursor: pointer;
-}
-
-.table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-/* Profit colors */
-.profit-positive {
-  color: var(--success);
-  font-weight: 500;
-}
-
-.profit-negative {
-  color: var(--danger);
-  font-weight: 500;
-}
-
-/* Pagination */
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.pagination button {
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  background: white;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.pagination button:hover:not(:disabled) {
-  background: #f5f5f5;
-}
-
-.pagination button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Buttons */
-.btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.btn-primary {
-  background: var(--primary);
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #1565c0;
-}
-
-/* Sheet Status */
-.sheet-status {
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 4px;
-}
-
-.sheet-status.ok {
-  background: #e8f5e9;
-  color: var(--success);
-}
-
-.sheet-status.error {
-  background: #ffebee;
-  color: var(--danger);
-}
-
-/* Page actions */
-.page-actions {
-  padding: 16px 24px;
-  background: white;
-  border-bottom: 1px solid var(--border);
-}
-
-/* Drilldown Panel (Page0) */
-.drilldown-panel {
-  margin-top: 16px;
-}
-
-/* Horizontal Drilldown Rail: Level 1 ← Level 2 ← Level 3 ← Level 4 */
-.drilldown-rail {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  gap: 20px;
-  padding: 12px 12px 16px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  min-height: 280px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #fafafa;
-}
-
-.drill-rail {
-  gap: 20px;
-  padding: 12px 12px 16px;
-  scroll-behavior: smooth;
-}
-
-.drilldown-rail-column {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;        /* ← 改這行：允許縮小 */
-  flex: 1 1 auto;   
-  border-right: 1px solid var(--border);
-  background: white;
-  overflow: hidden;
-}
-
-.drilldown-rail-column:last-child {
-  border-right: none;
-}
-
-/* Notion/Airtable-like card panels */
-.drill-panel {
-  flex: 1 1 auto;
-  background: #fff;
-  border: 1px solid #e5e5e5;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
-  padding: 0;
-  min-height: 200px;
-  border-right: none;
-}
-
-.drill-panel.level-1 { width: 100%; }
-.drill-panel.level-2 { width: 100%; }
-.drill-panel.level-3 { width: 100%; }
-.drill-panel.level-4 { width: 100%; }
-
-.drill-panel-header {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: #fff;
-  border-bottom: 1px solid #eee;
-  padding: 10px 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.drill-panel-title {
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.2;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.drill-panel-body {
-  padding: 10px 12px 14px;
-  overflow: auto;
-  max-height: calc(100vh - 220px);
-  width: 100%;          /* ← 新增 */
-}
-
-.drill-panel.inactive { opacity: 0.88; }
-.drill-panel.active {
-  opacity: 1;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
-}
-
-.drill-panel.enter {
-  animation: drillEnter 200ms ease-out;
-}
-
-@keyframes drillEnter {
-  from { opacity: 0; transform: translateX(14px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-/* Table readability inside drill panels */
-.drill-panel table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-}
-
-.drill-panel th,
-.drill-panel td {
-  font-size: 13px;
-  padding: 10px 12px;
-  vertical-align: top;
-}
-
-.drill-panel td.num,
-.drill-panel th.num {
-  white-space: nowrap;
-  text-align: right;
-}
-
-.drill-panel td.label,
-.drill-panel th.label {
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.drill-panel .table-controls,
-.drill-panel .pagination {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.drilldown-rail-column-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  background: #f5f5f5;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.drill-panel-header.drilldown-rail-column-header {
-  background: #fff;
-  border-bottom: 1px solid #eee;
-}
-
-.drilldown-rail-column-header .drilldown-rail-close {
-  padding: 4px 10px;
-  font-size: 13px;
-  border: 1px solid var(--border);
-  background: white;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.drilldown-rail-column-header .drilldown-rail-close:hover {
-  background: #eee;
-}
-
-.drilldown-rail-column-body {
-  flex: 1;
-  padding: 12px;
-  overflow-y: auto;
-  overflow-x: auto;
-}
-
-.drilldown-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.drilldown-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.drilldown-close {
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  background: white;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.drilldown-close:hover {
-  background: #f5f5f5;
-}
-
-.drilldown-tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 12px;
-}
-
-.drilldown-tab {
-  padding: 4px 10px;
-  font-size: 12px;
-  border: 1px solid var(--border);
-  background: white;
-  border-radius: 4px;
-  cursor: pointer;
-  color: #555;
-}
-
-.drilldown-tab:hover:not(.disabled) {
-  background: #f5f5f5;
-}
-
-.drilldown-tab.active {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
-}
-
-.drilldown-tab.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.drill-chart {
-  margin-bottom: 12px;
-}
-
-.drilldown-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 12px;
-  font-size: 14px;
-  color: #333;
-}
-
-.top-n-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.top-n-row .top-n-select {
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-/* Grouped bar rows (multi-period drill-down) */
-.grouped-bar-rows {
-  margin-top: 8px;
-  font-size: 13px;
-  width: 100%;        /* ← 關鍵 */
-  min-width: 100%;
-}
-
-.grouped-bar-rows-empty {
-  color: #666;
-  padding: 12px 0;
-}
-
-.grouped-bar-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid var(--border);
-  min-height: 52px;
-}
-
-.grouped-bar-row-clickable:hover {
-  background: rgba(25, 118, 210, 0.06);
-}
-
-.grouped-bar-row-label {
-  flex-shrink: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #333;
-}
-
-/* Drill-down: customer name full display, allow 2-line wrap */
-.drill-panel .grouped-bar-row-label {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  text-overflow: ellipsis;
-  min-width: 160px;
-}
-
-.drill-panel .grouped-bar-row:not(.grouped-bar-row-header) {
-  min-height: 52px;
-  height: auto;
-  align-items: flex-start;
-  padding-top: 6px;
-  padding-bottom: 6px;
-}
-
-.grouped-bar-row-chart {
-  flex: 1;
-  min-width: 320px;
-}
-
-/* Multi-period bar grid: middle column widest, more gap */
-.bars-grid {
-  display: grid;
-  column-gap: 12px;
-  align-items: flex-end;
-  min-width: 0;
-}
-
-.bars-grid.cols-1 {
-  grid-template-columns: 1fr;
-}
-
-.bars-grid.cols-2 {
-  grid-template-columns: 1fr 1fr;
-}
-
-.bars-grid.cols-3 {
-  grid-template-columns: 1fr 1fr 1fr;
-}
-
-.bar-cell {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-/* Level 3 (and any) Total column narrower */
-.grouped-bar-row-total-col.col-total {
-  width: 80px;
-  max-width: 80px;
-  min-width: 80px;
-  text-align: right;
-  white-space: nowrap;
-}
-
-/* Customer Drill-down metrics table: emphasize last row (Customer Profitability) */
-.customer-drill-metrics-table .table tbody tr:last-child {
-  font-weight: 600;
-  background: rgba(0, 0, 0, 0.04);
-}
-
-/* Service Cost Breakdown table: Total row at bottom */
-.service-cost-breakdown-table .table tbody tr:last-child td {
-  font-weight: bold;
-  border-top: 2px solid #ddd;
-}
-
-/* === Drilldown rail sizing rules === */
-
-/* 外層必須是 flex，且不可水平捲動整頁 */
-.drilldown-rail {
-  display: flex;
-  width: 100%;
-  max-width: 100%;
-  overflow: hidden;
-}
-
-/* Level 1：吃剩餘空間（會被擠小） */
-.drilldown-rail-column.level-1 {
-  flex: 1 1 0;
-  min-width: 320px;   /* 可調：320~420 */
-}
-
-/* Level 2 / 3：固定寬度（出現時會把 level-1 擠小） */
-.drilldown-rail-column.level-2 {
-  flex: 2 1 0;
-  min-width: 420px;    /* 可調 */
-}
-
-.drilldown-rail-column.level-3 {
-  flex: 1 1 auto;    /* 可調 */
+  
+  .bars-grid.cols-2 {
+    grid-template-columns: 1fr 1fr;
   }
-
- 
-
+  
+  .bars-grid.cols-3 {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  
+  .bar-cell {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  
+  /* Level 3 Total column */
+  .grouped-bar-row-total-col.col-total {
+    width: 90px;               /* 🔧 從 80px → 90px，Total 數字欄更寬 */
+    max-width: 90px;
+    min-width: 90px;
+    text-align: right;
+    white-space: nowrap;
+    font-size: 15px;           /* 🔧 新增 */
+  }
+  
+  /* Customer Drill-down metrics table */
+  .customer-drill-metrics-table .table tbody tr:last-child {
+    font-weight: 600;
+    background: rgba(0, 0, 0, 0.04);
+  }
+  
+  /* Service Cost Breakdown table: Total row */
+  .service-cost-breakdown-table .table tbody tr:last-child td {
+    font-weight: bold;
+    border-top: 2px solid #ddd;
+  }
+  
+  /* ============ Drilldown rail sizing rules ============ */
+  
+  .drilldown-rail {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  
+  /* Level 1：可被擠小 */
+  .drilldown-rail-column.level-1 {
+    flex: 1 1 0;
+    min-width: 340px;          /* 🔧 從 320px → 340px，第一層面板稍寬 */
+  }
+  
+  /* Level 2：固定寬度 */
+  .drilldown-rail-column.level-2 {
+    flex: 2 1 0;
+    min-width: 440px;          /* 🔧 從 420px → 440px */
+  }
+  
+  .drilldown-rail-column.level-3 {
+    flex: 1 1 auto;
+  }
