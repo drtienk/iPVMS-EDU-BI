@@ -1,4 +1,4 @@
-# ABC BI App – Project Status & Handover
+# iPVMS EDU BI App – Project Status & Handover
 
 ## 【Project Status - 2026-02-07】
 
@@ -10,7 +10,7 @@
 
 ### 1.1 Business Purpose
 
-- **ABC BI App** 是一套**前端 BI（商業智慧）儀表板與下鑽分析**應用。
+- **iPVMS EDU BI App** 是一套**前端 BI（商業智慧）儀表板與下鑽分析**應用。
 - 主要用途：上傳 Excel（.xlsx）中的**多張工作表**，經解析與正規化後存入**瀏覽器本機 IndexedDB**，並提供：
   - **顧客總覽儀表板**：多期間的總獲利、總營收、總服務成本、顧客數等圖表。
   - **期間下鑽**：點選圖表 bar 後，可依「按產品」「按銷售活動中心」「排序清單」「分布圖」等模式檢視該期或 1–3 期資料。
