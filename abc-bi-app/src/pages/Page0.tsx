@@ -6,6 +6,8 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { SimpleChart, formatMonthMMYYYY } from '../components/SimpleChart';
 import { GroupedBarRows } from '../components/GroupedBarRows';
 import type { GroupedBarRow } from '../components/GroupedBarRows';
+import { HorizontalBarTable } from '../components/HorizontalBarTable';
+import type { HBRow } from '../components/HorizontalBarTable';
 import { getTableData, listPeriods, getTable } from '../dataApi';
 import { formatMoney, formatNumber1, formatPercent } from '../utils/format';
 import { toNumber } from '../normalize';
@@ -444,6 +446,8 @@ export function Page0() {
   const [selectedPeriodNo, setSelectedPeriodNo] = useState<number | null>(null);
   const [selectedPeriods, setSelectedPeriods] = useState<number[]>([]);
   const [drilldownMode, setDrilldownMode] = useState<'whale' | 'ranked' | 'hist' | 'product' | 'salesActivityCenter' | 'customer' | 'compare'>('whale');
+  const [showRevWhale, setShowRevWhale] = useState(false);
+  const [whaleTooltip, setWhaleTooltip] = useState<{ gradId: string; rank: number; name: string; value: number; cum: number; svgX: number; svgY: number } | null>(null);
   const [compareType, setCompareType] = useState<'product' | 'sac' | 'customer'>('product');
   const [compareSelected, setCompareSelected] = useState<{ key: string; label: string }[]>([]);
   const [compareMetricsMap, setCompareMetricsMap] = useState<Record<string, { revenue: number; cogs: number; serviceCost: number; managementCost: number; profit: number }>>({});
@@ -466,7 +470,7 @@ export function Page0() {
   const [productDataAvailable, setProductDataAvailable] = useState(false);
   const [groupedProductRows, setGroupedProductRows] = useState<GroupedBarRow[]>([]);
   const [groupedSalesActivityCenterRows, setGroupedSalesActivityCenterRows] = useState<GroupedBarRow[]>([]);
-  const [salesActivityCenterMonthTotals, setSalesActivityCenterMonthTotals] = useState<{ period: number; total: number }[]>([]);
+  const [_salesActivityCenterMonthTotals, setSalesActivityCenterMonthTotals] = useState<{ period: number; total: number }[]>([]);
   const [salesActivityCenterDataAvailable, setSalesActivityCenterDataAvailable] = useState(false);
   const [groupedCustomerRows, setGroupedCustomerRows] = useState<GroupedBarRow[]>([]);
   const [customerMonthTotals, setCustomerMonthTotals] = useState<{ period: number; total: number }[]>([]);
@@ -1672,22 +1676,8 @@ export function Page0() {
 
               <div className="drill-panel-header drilldown-rail-column-header">
                 <h3 className="drilldown-title drill-panel-title" style={{ margin: 0 }}>
-                  {selectedPeriods.length === 0
-                    ? `Drill-down: Period ${selectedPeriodNo}`
-                    : selectedPeriods.length === 1
-                      ? `Drill-down: Period ${selectedPeriods[0]}`
-                      : `Drill-down: Period ${selectedPeriods[0]}–${selectedPeriods[selectedPeriods.length - 1]}`}
+                  Profitability Analysis
                 </h3>
-                <button
-                  type="button"
-                  className="drilldown-rail-close"
-                  onClick={() => {
-                    setSelectedPeriodNo(null);
-                    setSelectedPeriods([]);
-                  }}
-                >
-                  Close
-                </button>
               </div>
               <div className="drill-panel-body drilldown-rail-column-body">
           <div className="drilldown-tabs">
@@ -1696,7 +1686,14 @@ export function Page0() {
               className={`drilldown-tab ${drilldownMode === 'whale' ? 'active' : ''}`}
               onClick={() => setDrilldownMode('whale')}
             >
-              Whale Curve
+              Overview
+            </button>
+            <button
+              type="button"
+              className={`drilldown-tab ${drilldownMode === 'compare' ? 'active' : ''}`}
+              onClick={() => setDrilldownMode('compare')}
+            >
+              Compare
             </button>
             <button
               type="button"
@@ -1710,6 +1707,7 @@ export function Page0() {
               className={`drilldown-tab ${drilldownMode === 'product' ? 'active' : ''} ${!productDataAvailable ? 'disabled' : ''}`}
               onClick={() => productDataAvailable && setDrilldownMode('product')}
               disabled={!productDataAvailable}
+              title={!productDataAvailable ? 'ProductProfitResult data not available.' : undefined}
             >
               By Product
             </button>
@@ -1718,30 +1716,23 @@ export function Page0() {
               className={`drilldown-tab ${drilldownMode === 'salesActivityCenter' ? 'active' : ''} ${!salesActivityCenterDataAvailable ? 'disabled' : ''}`}
               onClick={() => salesActivityCenterDataAvailable && setDrilldownMode('salesActivityCenter')}
               disabled={!salesActivityCenterDataAvailable}
-              title={!salesActivityCenterDataAvailable ? 'Sales Activity Center data is not available in the current dataset.' : undefined}
+              title={!salesActivityCenterDataAvailable ? 'Sales Activity Center data not available.' : undefined}
             >
-              By Sales Activity Center
+              By SAC
             </button>
             <button
               type="button"
               className={`drilldown-tab ${drilldownMode === 'ranked' ? 'active' : ''}`}
               onClick={() => setDrilldownMode('ranked')}
             >
-              Ranked List
+              Top Customers
             </button>
             <button
               type="button"
               className={`drilldown-tab ${drilldownMode === 'hist' ? 'active' : ''}`}
               onClick={() => setDrilldownMode('hist')}
             >
-              Distribution
-            </button>
-            <button
-              type="button"
-              className={`drilldown-tab ${drilldownMode === 'compare' ? 'active' : ''}`}
-              onClick={() => setDrilldownMode('compare')}
-            >
-              Compare
+              Profit Spread
             </button>
           </div>
 
@@ -1751,11 +1742,11 @@ export function Page0() {
           {!loadingDrilldown && !errorDrilldown && drilldownMode === 'whale' && (() => {
             if (drilldownRows.length === 0) return <p className="trend-panel-message">No customer data for this period.</p>;
 
-            type WhalePt = { rank: number; cum: number; value: number };
+            type WhalePt = { rank: number; cum: number; value: number; name: string };
             const buildPts = (getValue: (r: typeof drilldownRows[0]) => number, sortDesc = true): WhalePt[] => {
               const rows = [...drilldownRows].sort((a, b) => sortDesc ? getValue(b) - getValue(a) : getValue(a) - getValue(b));
               let cum = 0;
-              return rows.map((r, i) => { cum += getValue(r); return { rank: i + 1, cum, value: getValue(r) }; });
+              return rows.map((r, i) => { cum += getValue(r); return { rank: i + 1, cum, value: getValue(r), name: String(r.Customer ?? r.customerId ?? `#${i + 1}`) }; });
             };
 
             const renderWhale = (
@@ -1789,11 +1780,18 @@ export function Page0() {
               const areaPath = `M ${sx(1).toFixed(1)} ${zeroY.toFixed(1)} ` + pts.map((p) => `L ${sx(p.rank).toFixed(1)} ${sy(p.cum).toFixed(1)}`).join(' ') + ` L ${sx(n).toFixed(1)} ${zeroY.toFixed(1)} Z`;
               const zeroFrac = (zeroY / cH) * 100;
               const yTicks = Array.from(new Set([yMin, yMax, 0])).sort((a, b) => b - a);
+              const tip = whaleTooltip?.gradId === gradId ? whaleTooltip : null;
 
               return (
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4, color: '#222' }}>{title}</div>
-                  <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ display: 'block', overflow: 'visible' }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4, color: 'var(--text-primary)' }}>{title}</div>
+                  <svg
+                    width="100%"
+                    viewBox={`0 0 ${W} ${H}`}
+                    preserveAspectRatio="xMidYMid meet"
+                    style={{ display: 'block', overflow: 'visible' }}
+                    onMouseLeave={() => setWhaleTooltip(null)}
+                  >
                     <defs>
                       <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
                         <stop offset={`${Math.max(0, zeroFrac - 0.5).toFixed(1)}%`} stopColor="#4CAF50" stopOpacity="0.2" />
@@ -1804,14 +1802,14 @@ export function Page0() {
                       <path d={areaPath} fill={`url(#${gradId})`} />
                       {zeroY >= 0 && zeroY <= cH && <line x1={0} y1={zeroY} x2={cW} y2={zeroY} stroke="#aaa" strokeDasharray="5,4" strokeWidth={1} />}
                       <path d={linePath} fill="none" stroke={lineColor} strokeWidth={2.5} strokeLinejoin="round" />
-                      <circle cx={sx(peakRank)} cy={sy(peakVal)} r={5} fill="#2E844A" />
-                      <text x={sx(peakRank)} y={sy(peakVal) - 10} textAnchor={peakRank > n * 0.7 ? 'end' : 'middle'} fontSize={10} fill="#2E844A" fontWeight="600">
+                      <circle cx={sx(peakRank)} cy={sy(peakVal)} r={5} fill="var(--success)" />
+                      <text x={sx(peakRank)} y={sy(peakVal) - 10} textAnchor={peakRank > n * 0.7 ? 'end' : 'middle'} fontSize={10} fill="var(--success)" fontWeight="600">
                         Peak {formatMoney(peakVal)}
                       </text>
                       {breakEvenIdx > 0 && (
                         <>
-                          <line x1={sx(breakEvenIdx + 1)} y1={0} x2={sx(breakEvenIdx + 1)} y2={cH} stroke="#E65100" strokeDasharray="4,3" strokeWidth={1.5} />
-                          <text x={sx(breakEvenIdx + 1) + 4} y={10} fontSize={10} fill="#E65100">Loss starts #{breakEvenIdx + 1}</text>
+                          <line x1={sx(breakEvenIdx + 1)} y1={0} x2={sx(breakEvenIdx + 1)} y2={cH} stroke="var(--danger)" strokeDasharray="4,3" strokeWidth={1.5} />
+                          <text x={sx(breakEvenIdx + 1) + 4} y={10} fontSize={10} fill="var(--danger)">Loss starts #{breakEvenIdx + 1}</text>
                         </>
                       )}
                       <line x1={0} y1={0} x2={0} y2={cH} stroke="#ddd" />
@@ -1823,20 +1821,55 @@ export function Page0() {
                         </g>
                       ))}
                       <text x={cW / 2} y={cH + 28} textAnchor="middle" fontSize={11} fill="#666">{xLabel} ({n} customers)</text>
+                      {/* Invisible hover bands for tooltip */}
+                      {pts.map((p, i) => {
+                        const bandW = cW / Math.max(n, 1);
+                        return (
+                          <rect
+                            key={i}
+                            x={sx(p.rank) - bandW / 2}
+                            y={0}
+                            width={bandW}
+                            height={cH}
+                            fill="transparent"
+                            style={{ cursor: 'crosshair' }}
+                            onMouseEnter={() => setWhaleTooltip({ gradId, rank: p.rank, name: p.name, value: p.value, cum: p.cum, svgX: sx(p.rank), svgY: sy(p.cum) })}
+                          />
+                        );
+                      })}
+                      {/* Hover indicator + tooltip */}
+                      {tip && (
+                        <g>
+                          <line x1={tip.svgX} y1={0} x2={tip.svgX} y2={cH} stroke="#999" strokeDasharray="3,3" strokeWidth={1} />
+                          <circle cx={tip.svgX} cy={tip.svgY} r={4} fill={lineColor} stroke="#fff" strokeWidth={1.5} />
+                          {(() => {
+                            const tx = tip.svgX > cW * 0.65 ? tip.svgX - 142 : tip.svgX + 8;
+                            const ty = Math.max(4, tip.svgY - 38);
+                            return (
+                              <g>
+                                <rect x={tx} y={ty} width={136} height={48} fill="white" stroke="#ddd" rx={4} style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.12))' }} />
+                                <text x={tx + 8} y={ty + 14} fontSize={11} fontWeight="600" fill="var(--text-primary)">{tip.name}</text>
+                                <text x={tx + 8} y={ty + 28} fontSize={10} fill="var(--text-secondary)">{`Value: ${formatMoney(tip.value)}`}</text>
+                                <text x={tx + 8} y={ty + 42} fontSize={10} fill="var(--text-secondary)">{`Cumulative: ${formatMoney(tip.cum)}`}</text>
+                              </g>
+                            );
+                          })()}
+                        </g>
+                      )}
                     </g>
                   </svg>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginTop: 8 }}>
-                    <div style={{ background: '#e8f5e9', borderRadius: 6, padding: '6px 10px' }}>
-                      <div style={{ fontSize: 10, color: '#555' }}>Peak (top {peakRank})</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#2E844A' }}>{formatMoney(peakVal)}</div>
+                    <div style={{ background: 'var(--success-tint)', borderRadius: 6, padding: '6px 10px' }}>
+                      <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Peak (top {peakRank})</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--success)' }}>{formatMoney(peakVal)}</div>
                     </div>
-                    <div style={{ background: total >= 0 ? '#e8f5e9' : '#fce4ec', borderRadius: 6, padding: '6px 10px' }}>
-                      <div style={{ fontSize: 10, color: '#555' }}>Total (all customers)</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: total >= 0 ? '#2E844A' : '#C23934' }}>{formatMoney(total)}</div>
+                    <div style={{ background: total >= 0 ? 'var(--success-tint)' : 'var(--danger-tint)', borderRadius: 6, padding: '6px 10px' }}>
+                      <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Total (all customers)</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: total >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatMoney(total)}</div>
                     </div>
-                    <div style={{ background: '#e3f2fd', borderRadius: 6, padding: '6px 10px' }}>
-                      <div style={{ fontSize: 10, color: '#555' }}>Top 20% ({top20Count})</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#0176D3' }}>{formatMoney(top20Val)}</div>
+                    <div style={{ background: 'var(--primary-tint)', borderRadius: 6, padding: '6px 10px' }}>
+                      <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Top 20% ({top20Count})</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>{formatMoney(top20Val)}</div>
                     </div>
                   </div>
                 </div>
@@ -1848,9 +1881,21 @@ export function Page0() {
 
             return (
               <>
-                {renderWhale(profitPts, 'Cumulative Profitability Whale Curve', '#0176D3', 'whale-grad-profit', 'Customers ranked by profitability', true)}
-                {renderWhale(revPts,    'Cumulative Revenue Whale Curve',        '#6A1B9A', 'whale-grad-rev',    'Customers ranked by revenue',        false)}
-                <p style={{ fontSize: 12, color: '#888', margin: 0 }}>Switch to By Customer to drill into individual customers.</p>
+                {renderWhale(profitPts, 'Cumulative Profitability', '#0176D3', 'whale-grad-profit', 'Customers ranked by profitability', true)}
+                <div style={{ marginBottom: 12 }}>
+                  <button
+                    type="button"
+                    className={`btn${showRevWhale ? ' btn-primary' : ''}`}
+                    style={{ fontSize: 12, padding: '3px 10px' }}
+                    onClick={() => setShowRevWhale((v) => !v)}
+                  >
+                    {showRevWhale ? 'Hide Revenue Curve' : 'Show Revenue Curve'}
+                  </button>
+                </div>
+                {showRevWhale && renderWhale(revPts, 'Cumulative Revenue', '#6A1B9A', 'whale-grad-rev', 'Customers ranked by revenue', false)}
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
+                  Switch to <strong>By Customer</strong> or <strong>Top Customers</strong> tab to drill into individual customers.
+                </p>
               </>
             );
           })()}
@@ -1887,19 +1932,17 @@ export function Page0() {
                       <thead>
                         <tr>
                           <th className="num">#</th>
-                          <th className="label">CustomerID</th>
                           <th className="label">Customer</th>
-                          <th className="num">CustomerProfit</th>
-                          <th className="num">Revenue (Price)</th>
-                          <th className="num">ServiceCost</th>
+                          <th className="num">Profit</th>
+                          <th className="num">Revenue</th>
+                          <th className="num">Service Cost</th>
                         </tr>
                       </thead>
                       <tbody>
                         {(showAllRanked ? drilldownRows : drilldownRows.slice(0, topN)).map((r, i) => (
                           <tr key={`${r.customerId}-${i}`}>
                             <td className="num">{i + 1}</td>
-                            <td className="label">{String(r.CustomerID ?? r.customerId ?? '')}</td>
-                            <td className="label">{String(r.Customer ?? '')}</td>
+                            <td className="label">{String(r.Customer ?? r.CustomerID ?? r.customerId ?? '')}</td>
                             <td className={`num ${toNumber(r.CustomerProfit, 0) >= 0 ? 'profit-positive' : 'profit-negative'}`}>
                               {formatMoney(toNumber(r.CustomerProfit, 0))}
                             </td>
@@ -1944,46 +1987,21 @@ export function Page0() {
                   : allCustomersForCompare.map((r) => ({ key: r.key, label: r.label, profit: r.profit }));
 
             const readyItems = compareSelected.filter((item) => compareMetricsMap[item.key]);
-            const chartRows: GroupedBarRow[] = readyItems.length >= 1 ? [
-              { group: 'Revenue',         values: compareSelected.map((item, idx) => ({ x: idx, y: compareMetricsMap[item.key]?.revenue ?? 0 })) },
-              { group: 'COGS',            values: compareSelected.map((item, idx) => ({ x: idx, y: compareMetricsMap[item.key]?.cogs ?? 0 })) },
-              { group: 'Service Cost',    values: compareSelected.map((item, idx) => ({ x: idx, y: compareMetricsMap[item.key]?.serviceCost ?? 0 })) },
-              { group: 'Mgmt Cost',       values: compareSelected.map((item, idx) => ({ x: idx, y: compareMetricsMap[item.key]?.managementCost ?? 0 })) },
-              { group: 'Profit',          values: compareSelected.map((item, idx) => ({ x: idx, y: compareMetricsMap[item.key]?.profit ?? 0 })) },
-            ] : [];
-            const compareMonthTotals = compareSelected.map((item, idx) => ({
-              period: idx,
-              total: compareMetricsMap[item.key]?.profit ?? 0,
-            }));
-            const tableData: Record<string, string | number>[] = [
-              { metric: 'Revenue',         ...Object.fromEntries(compareSelected.map((item) => [item.label, formatMoney(compareMetricsMap[item.key]?.revenue ?? 0)])) },
-              { metric: 'COGS',            ...Object.fromEntries(compareSelected.map((item) => [item.label, formatMoney(compareMetricsMap[item.key]?.cogs ?? 0)])) },
-              { metric: 'Service Cost',    ...Object.fromEntries(compareSelected.map((item) => [item.label, formatMoney(compareMetricsMap[item.key]?.serviceCost ?? 0)])) },
-              { metric: 'Mgmt Cost',       ...Object.fromEntries(compareSelected.map((item) => [item.label, formatMoney(compareMetricsMap[item.key]?.managementCost ?? 0)])) },
-              { metric: 'Profit',          ...Object.fromEntries(compareSelected.map((item) => [item.label, formatMoney(compareMetricsMap[item.key]?.profit ?? 0)])) },
+            const cmpMetricDefs = [
+              { key: 'revenue',        label: 'Revenue',      getter: (m: typeof compareMetricsMap[string]) => m?.revenue ?? 0,        drillable: false, isSummary: false },
+              { key: 'cogs',           label: 'COGS',         getter: (m: typeof compareMetricsMap[string]) => m?.cogs ?? 0,            drillable: false, isSummary: false },
+              { key: 'serviceCost',    label: 'Service Cost', getter: (m: typeof compareMetricsMap[string]) => m?.serviceCost ?? 0,     drillable: true,  isSummary: false },
+              { key: 'managementCost', label: 'Mgmt Cost',    getter: (m: typeof compareMetricsMap[string]) => m?.managementCost ?? 0, drillable: false, isSummary: false },
+              { key: 'profit',         label: 'Profit',       getter: (m: typeof compareMetricsMap[string]) => m?.profit ?? 0,          drillable: false, isSummary: true  },
             ];
-            const tableCols: ColumnDef<Record<string, string | number>, unknown>[] = [
-              { accessorKey: 'metric', header: 'Metric' },
-              ...compareSelected.map((item) => ({
-                accessorKey: item.label,
-                header: item.label,
-                cell: ({ getValue, row }: { getValue: () => unknown; row: { original: Record<string, string | number> } }) => {
-                  const raw = String(getValue() ?? '');
-                  const isProfit = row.original.metric === 'Profit';
-                  if (!isProfit) return raw;
-                  const numVal = compareMetricsMap[item.key]?.profit ?? 0;
-                  return <span className={numVal >= 0 ? 'profit-positive' : 'profit-negative'}>{raw}</span>;
-                },
-              })),
-            ];
+
             return (
               <>
                 {/* Type selector */}
-                <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                <div className="compare-type-selector">
                   {(['product', 'sac', 'customer'] as const).map((t) => (
                     <button key={t} type="button"
-                      className={compareType === t ? 'btn btn-primary' : 'btn'}
-                      style={{ fontSize: 12, padding: '3px 10px' }}
+                      className={`compare-type-btn${compareType === t ? ' active' : ''}`}
                       onClick={() => { setCompareType(t); setCompareSelected([]); setCompareMetricsMap({}); }}
                     >
                       {t === 'product' ? 'Product' : t === 'sac' ? 'Activity Center' : 'Customer'}
@@ -1991,38 +2009,29 @@ export function Page0() {
                   ))}
                 </div>
 
-                {/* Selected chips */}
-                {compareSelected.length > 0 && (
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-                    {compareSelected.map((item) => (
-                      <span key={item.key} style={{ background: '#e3f2fd', border: '1px solid #90caf9', borderRadius: 12, padding: '2px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        {item.label}
-                        <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#555', lineHeight: 1, fontSize: 14, padding: 0 }}
-                          onClick={() => setCompareSelected((prev) => prev.filter((i) => i.key !== item.key))}>×</button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Item list */}
-                <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 6, marginBottom: 14 }}>
-                  {availableItems.length === 0 && <p style={{ padding: '8px 12px', fontSize: 12, color: '#888', margin: 0 }}>No items available for this period.</p>}
+                {/* Item selection list */}
+                <div className="compare-item-list">
+                  {availableItems.length === 0 && (
+                    <p style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
+                      No items available for this period.
+                    </p>
+                  )}
                   {availableItems.map((item) => {
                     const isSelected = compareSelected.some((i) => i.key === item.key);
                     const disabled = !isSelected && compareSelected.length >= 3;
-                    const profitColor = item.profit != null ? (item.profit >= 0 ? '#2E844A' : '#C23934') : '#888';
+                    const profitColor = item.profit != null ? (item.profit >= 0 ? 'var(--success)' : 'var(--danger)') : 'var(--text-secondary)';
                     return (
                       <button key={item.key} type="button"
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '5px 12px', background: isSelected ? '#e8f5e9' : 'transparent', border: 'none', borderBottom: '1px solid var(--border)', cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1, fontSize: 13 }}
+                        className={`compare-item-btn${isSelected ? ' selected' : ''}${disabled ? ' disabled' : ''}`}
                         onClick={() => {
                           if (isSelected) setCompareSelected((prev) => prev.filter((i) => i.key !== item.key));
                           else if (!disabled) setCompareSelected((prev) => [...prev, { key: item.key, label: item.label }]);
                         }}
                       >
-                        <span style={{ width: 16, flexShrink: 0, textAlign: 'center', color: '#2E844A', fontWeight: 700 }}>{isSelected ? '✓' : ''}</span>
-                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+                        <span className="compare-item-check">{isSelected ? '✓' : ''}</span>
+                        <span className="compare-item-name">{item.label}</span>
                         {item.profit != null && (
-                          <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 600, color: profitColor, minWidth: 80, textAlign: 'right' }}>
+                          <span className="compare-item-profit" style={{ color: profitColor }}>
                             {formatMoney(item.profit)}
                           </span>
                         )}
@@ -2031,29 +2040,74 @@ export function Page0() {
                   })}
                 </div>
 
-                {compareSelected.length === 0 && <p className="trend-panel-message">Select 2–3 items above to compare.</p>}
+                {compareSelected.length === 0 && (
+                  <p className="trend-panel-message">Select 2–3 items above to compare.</p>
+                )}
                 {compareLoading && <p className="trend-panel-message">Loading…</p>}
 
-                {/* Comparison chart */}
+                {/* Comparison metrics table */}
                 {!compareLoading && compareSelected.length >= 2 && readyItems.length >= 2 && (
-                  <>
-                    <div className="drill-chart" style={{ marginBottom: 12 }}>
-                      <GroupedBarRows
-                        rows={chartRows}
-                        formatPeriod={(x) => compareSelected[Number(x)]?.label ?? String(x)}
-                        barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
-                        barLabelFormatter={(y) => formatMoney(y)}
-                        totalFormatter={formatMoney}
-                        labelWidth={120}
-                        monthTotals={compareMonthTotals}
-                        labelColumnTitle="Metric"
-                        onRowClick={({ label }) => { if (label === 'Service Cost') setCompareServiceCostDrill(true); }}
-                      />
+                  <div className="cmt">
+                    {/* Header row */}
+                    <div className="cmt-header">
+                      <div className="cmt-metric-col" />
+                      {compareSelected.map((item) => {
+                        const profit = compareMetricsMap[item.key]?.profit ?? 0;
+                        return (
+                          <div key={item.key} className="cmt-item-col cmt-item-header">
+                            <div className="cmt-item-name">{item.label}</div>
+                            <div className="cmt-item-profit" style={{ color: profit >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                              {formatMoney(profit)}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <DataTable data={tableData} columns={tableCols} searchable={false} pageSize={10} sortable={false}
-                      onRowClick={(row) => { if (String(row.metric) === 'Service Cost') setCompareServiceCostDrill(true); }}
-                    />
-                  </>
+
+                    {/* Metric rows */}
+                    {cmpMetricDefs.map(({ key, label, getter, drillable, isSummary }) => {
+                      const values = compareSelected.map((item) => getter(compareMetricsMap[item.key]));
+                      const maxAbs = Math.max(...values.map(Math.abs), 1);
+                      return (
+                        <div
+                          key={key}
+                          className={`cmt-row${drillable ? ' cmt-row-drillable' : ''}${isSummary ? ' cmt-row-summary' : ''}`}
+                          onClick={drillable ? () => setCompareServiceCostDrill(true) : undefined}
+                          role={drillable ? 'button' : undefined}
+                          tabIndex={drillable ? 0 : undefined}
+                          onKeyDown={drillable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCompareServiceCostDrill(true); } } : undefined}
+                        >
+                          <div className="cmt-metric-col">
+                            <span className="cmt-metric-label">{label}</span>
+                            {drillable && <span className="cmt-drill-badge">Drill in →</span>}
+                          </div>
+                          {compareSelected.map((item) => {
+                            const val = getter(compareMetricsMap[item.key]);
+                            const frac = Math.abs(val) / maxAbs;
+                            const valColor = isSummary
+                              ? (val >= 0 ? 'var(--success)' : 'var(--danger)')
+                              : 'var(--text-primary)';
+                            return (
+                              <div key={item.key} className="cmt-item-col">
+                                <div className="cmt-value" style={{ color: valColor }}>{formatMoney(val)}</div>
+                                {!isSummary && val !== 0 && (
+                                  <div className="cmt-bar-track">
+                                    <div
+                                      className="cmt-bar-fill"
+                                      style={{
+                                        width: `${(frac * 100).toFixed(1)}%`,
+                                        background: key === 'profit' ? (val >= 0 ? 'var(--success)' : 'var(--danger)') : 'var(--primary)',
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </>
             );
@@ -2061,7 +2115,7 @@ export function Page0() {
 
 {!loadingDrilldown && !errorDrilldown && drilldownMode === 'customer' && (
             <>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   className={`btn ${customerSortMode === 'top' ? 'btn-primary' : ''}`}
@@ -2076,23 +2130,21 @@ export function Page0() {
                 >
                   Bottom 20
                 </button>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 4 }}>
+                  Click any row or bar to drill into service costs →
+                </span>
               </div>
               {groupedCustomerRows.length > 0 ? (
-                <GroupedBarRows
-                  rows={groupedCustomerRows}
-                  formatPeriod={(x) => formatMonthMMYYYY(x)}
-                  barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
-                  barLabelFormatter={(y) => formatMoney(y)}
-                  totalFormatter={formatMoney}
-                  labelWidth={160}
-                  monthTotals={customerMonthTotals}
-                  labelColumnTitle="Customer"
-                  onRowClick={(row) => {
-                    if (row.key) openCustomerDrill(row.key, row.label);
-                  }}
-                  onBarClick={({ groupLabel, dataKey }) => {
-                    if (dataKey) openCustomerDrill(dataKey, groupLabel);
-                  }}
+                <HorizontalBarTable
+                  rows={groupedCustomerRows.map((r): HBRow => ({
+                    label: r.group,
+                    dataKey: r.dataKey,
+                    total: r.total ?? r.values.reduce((s, v) => s + v.y, 0),
+                    periods: r.values.map((v) => ({ label: formatMonthMMYYYY(v.x), value: v.y })),
+                  }))}
+                  formatValue={formatMoney}
+                  onRowClick={(row) => { if (row.key) openCustomerDrill(row.key, row.label); }}
+                  emptyMessage="No customer data for selected period(s)."
                 />
               ) : (
                 <p className="trend-panel-message">No customer data for selected period(s).</p>
@@ -2102,16 +2154,20 @@ export function Page0() {
 
           {!loadingDrilldown && !errorDrilldown && drilldownMode === 'product' && (
             <>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8, marginTop: 0 }}>
+                Click any row to drill into product service costs →
+              </p>
               {productDataAvailable && groupedProductRows.length > 0 ? (
-                <GroupedBarRows
-                  rows={groupedProductRows}
-                  formatPeriod={(x) => formatMonthMMYYYY(x)}
-                  barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
-                  barLabelFormatter={(y) => formatMoney(y)}
-                  totalFormatter={formatMoney}
-                  width={360}
-                  labelWidth={120}
+                <HorizontalBarTable
+                  rows={groupedProductRows.map((r): HBRow => ({
+                    label: r.group,
+                    dataKey: r.dataKey,
+                    total: r.total ?? r.values.reduce((s, v) => s + v.y, 0),
+                    periods: r.values.map((v) => ({ label: formatMonthMMYYYY(v.x), value: v.y })),
+                  }))}
+                  formatValue={formatMoney}
                   onRowClick={({ label }) => openProductDrill(label)}
+                  emptyMessage="No product data for selected period(s)."
                 />
               ) : productDataAvailable ? (
                 <p className="trend-panel-message">No product data for selected period(s).</p>
@@ -2123,26 +2179,18 @@ export function Page0() {
 
           {!loadingDrilldown && !errorDrilldown && drilldownMode === 'salesActivityCenter' && (
             <>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8, marginTop: 0 }}>
+                Click any row or bar to drill into SAC products →
+              </p>
               {salesActivityCenterDataAvailable && groupedSalesActivityCenterRows.length > 0 ? (
-                <GroupedBarRows
-                  rows={groupedSalesActivityCenterRows}
-                  formatPeriod={(x) => formatMonthMMYYYY(x)}
-                  barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
-                  barLabelFormatter={(y) => formatMoney(y)}
-                  totalFormatter={formatMoney}
-                  width={360}
-                  labelWidth={120}
-                  monthTotals={salesActivityCenterMonthTotals}
-                  onBarClick={({ groupLabel, period }) => {
-                    setCustomerDrill(null);
-                    setServiceCostDrill(null);
-                    setDrilldown2Mode('product');
-                    setDrilldown2({
-                      salesActivityCenterKey: groupLabel,
-                      clickedPeriodNo: period,
-                      periods: selectedPeriods,
-                    });
-                  }}
+                <HorizontalBarTable
+                  rows={groupedSalesActivityCenterRows.map((r): HBRow => ({
+                    label: r.group,
+                    dataKey: r.dataKey,
+                    total: r.total ?? r.values.reduce((s, v) => s + v.y, 0),
+                    periods: r.values.map((v) => ({ label: formatMonthMMYYYY(v.x), value: v.y })),
+                  }))}
+                  formatValue={formatMoney}
                   onRowClick={({ label }) => {
                     setCustomerDrill(null);
                     setServiceCostDrill(null);
@@ -2153,6 +2201,7 @@ export function Page0() {
                       periods: selectedPeriods,
                     });
                   }}
+                  emptyMessage="No Sales Activity Center data for selected period(s)."
                 />
               ) : salesActivityCenterDataAvailable ? (
                 <p className="trend-panel-message">No Sales Activity Center data for selected period(s).</p>

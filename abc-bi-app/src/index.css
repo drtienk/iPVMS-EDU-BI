@@ -16,7 +16,10 @@
     --primary-dark: #032D60;
     --primary-hover: #0160AE;
     --success: #2E844A;
+    --success-tint: #EBF7EE;
     --danger: #C23934;
+    --danger-tint: #FDEDEC;
+    --primary-tint: #EEF4FF;
     --warning: #ff9800;
     --bg: #F3F2F2;
     --border: #e4e4e4;
@@ -845,6 +848,268 @@
     font-size: 15px;           /* 🔧 從 14px → 15px */
   }
   
+  /* ============ Horizontal bar table (Level 1 customer/product/SAC lists) ============ */
+  .hb-table {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .hb-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    background: #fff;
+    transition: background 0.12s;
+  }
+  .hb-row:last-child { border-bottom: none; }
+  .hb-row-clickable { cursor: pointer; }
+  .hb-row-clickable:hover { background: var(--primary-tint); }
+  .hb-rank {
+    width: 22px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    padding-top: 3px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .hb-content { flex: 1; min-width: 0; }
+  .hb-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .hb-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .hb-total {
+    font-size: 16px;
+    font-weight: 700;
+    flex-shrink: 0;
+    letter-spacing: -0.3px;
+  }
+  .hb-bar-track {
+    height: 6px;
+    background: #f0f0f0;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 5px;
+  }
+  .hb-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+  }
+  .hb-periods {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .hb-period-val {
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .hb-period-label {
+    color: var(--text-secondary);
+    font-weight: 400;
+    margin-right: 3px;
+  }
+  .hb-arrow {
+    font-size: 18px;
+    color: var(--text-secondary);
+    padding-top: 2px;
+    flex-shrink: 0;
+    opacity: 0.4;
+    transition: opacity 0.12s, color 0.12s;
+  }
+  .hb-row-clickable:hover .hb-arrow {
+    opacity: 1;
+    color: var(--primary);
+  }
+
+  /* ============ Compare tab — type selector, item list, metrics table ============ */
+  .compare-type-selector {
+    display: flex;
+    gap: 0;
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    align-self: flex-start;
+  }
+  .compare-type-btn {
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    background: #fff;
+    border: none;
+    border-right: 1px solid var(--border);
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: background 0.12s, color 0.12s;
+  }
+  .compare-type-btn:last-child { border-right: none; }
+  .compare-type-btn.active { background: var(--primary); color: #fff; }
+  .compare-type-btn:not(.active):hover { background: var(--primary-tint); color: var(--primary); }
+
+  .compare-item-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 14px;
+    background: #fff;
+  }
+  .compare-item-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+    padding: 7px 12px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.1s;
+  }
+  .compare-item-btn:last-child { border-bottom: none; }
+  .compare-item-btn.selected { background: var(--success-tint); }
+  .compare-item-btn.disabled { opacity: 0.4; cursor: default; }
+  .compare-item-btn:not(.disabled):hover { background: var(--primary-tint); }
+  .compare-item-check {
+    width: 16px;
+    flex-shrink: 0;
+    text-align: center;
+    color: var(--success);
+    font-weight: 700;
+    font-size: 12px;
+  }
+  .compare-item-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+  }
+  .compare-item-profit {
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 600;
+    min-width: 80px;
+    text-align: right;
+  }
+
+  /* Compare metrics table */
+  .cmt {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .cmt-header {
+    display: flex;
+    background: var(--bg);
+    border-bottom: 2px solid var(--border);
+    padding: 10px 14px;
+  }
+  .cmt-row {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 14px;
+    transition: background 0.12s;
+  }
+  .cmt-row:last-child { border-bottom: none; }
+  .cmt-row-drillable { cursor: pointer; }
+  .cmt-row-drillable:hover { background: var(--primary-tint); }
+  .cmt-row-summary {
+    background: #fafafa;
+    border-top: 2px solid var(--border);
+  }
+  .cmt-metric-col {
+    width: 130px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding-right: 12px;
+  }
+  .cmt-metric-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-secondary);
+  }
+  .cmt-row-summary .cmt-metric-label {
+    color: var(--text-primary);
+    font-size: 13px;
+  }
+  .cmt-drill-badge {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--primary);
+    background: var(--primary-tint);
+    border-radius: 4px;
+    padding: 1px 5px;
+    display: inline-block;
+  }
+  .cmt-item-col {
+    flex: 1;
+    min-width: 0;
+    padding: 0 8px;
+  }
+  .cmt-item-header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .cmt-item-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cmt-item-profit {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .cmt-value {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 5px;
+    letter-spacing: -0.3px;
+  }
+  .cmt-row-summary .cmt-value { font-size: 18px; }
+  .cmt-bar-track {
+    height: 5px;
+    background: #f0f0f0;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .cmt-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    opacity: 0.75;
+    transition: width 0.3s ease;
+  }
+
   /* ============ Grouped bar rows (multi-period drill-down) ============ */
   .grouped-bar-rows {
     margin-top: 8px;
