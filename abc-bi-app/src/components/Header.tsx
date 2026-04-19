@@ -84,36 +84,46 @@ export function Header() {
 
   return (
     <header className="header">
-      <Link to={periodNo != null ? `/page0?periodNo=${periodNo}` : '/page0'} className="header-title">
-        <h1>iPVMS EDU BI</h1>
-      </Link>
-      <span className="header-period">
-        Period: <PeriodSelector periods={periods} refreshKey={refreshToken} onPeriodChange={setPeriodNo} />
-        <button
-          type="button"
-          className="header-refresh"
-          onClick={triggerRefresh}
-          title="Reload data from IndexedDB"
-          aria-label="Refresh"
-        >
-          Refresh
-        </button>
-        <button
-          type="button"
-          className="header-delete-period"
-          onClick={handleDeletePeriod}
-          disabled={!canDeletePeriod}
-          title="Delete uploaded period"
-          aria-label="Delete uploaded period"
-        >
-          Delete
-        </button>
-      </span>
-      {deleteMessage != null && <span className="header-delete-message">{deleteMessage}</span>}
-      <span className={`sheet-status ${allOk ? 'ok' : 'error'}`}>
-        {okCount}/{required.length} {allOk ? 'OK ✓' : ''}
-      </span>
-      <UploadExcelButton onUploaded={handleUploaded} />
+      <div className="header-brand">
+        <Link to={periodNo != null ? `/page0?periodNo=${periodNo}` : '/page0'} className="header-title">
+          <span className="header-logo-mark">iB</span>
+          <h1>iPVMS EDU BI</h1>
+        </Link>
+      </div>
+
+      <div className="header-actions">
+        <span className="header-period">
+          <span className="header-period-label">Period</span>
+          <PeriodSelector periods={periods} refreshKey={refreshToken} onPeriodChange={setPeriodNo} />
+          <button
+            type="button"
+            className="header-icon-btn"
+            onClick={triggerRefresh}
+            title="Reload data"
+            aria-label="Refresh"
+          >
+            ↺
+          </button>
+          <button
+            type="button"
+            className="header-delete-period"
+            onClick={handleDeletePeriod}
+            disabled={!canDeletePeriod}
+            title="Delete uploaded period"
+            aria-label="Delete uploaded period"
+          >
+            Delete
+          </button>
+        </span>
+
+        <span className={`sheet-status-badge ${allOk ? 'ok' : 'error'}`}>
+          {allOk ? `✓ ${okCount}/${required.length}` : `${okCount}/${required.length} sheets`}
+        </span>
+
+        {deleteMessage != null && <span className="header-delete-message">{deleteMessage}</span>}
+
+        <UploadExcelButton onUploaded={handleUploaded} />
+      </div>
     </header>
   );
 }

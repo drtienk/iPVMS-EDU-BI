@@ -35,7 +35,7 @@ const DEFAULT_WIDTH = 400;
 const DEFAULT_HEIGHT = 220;
 const PAD = { left: 48, right: 16, top: 16, bottom: 36 };
 
-const DEFAULT_BAR_COLOR_POSITIVE = '#1976d2';
+const DEFAULT_BAR_COLOR_POSITIVE = '#0176D3';
 const DEFAULT_BAR_COLOR_NEGATIVE = '#e57373';
 const MIN_BAR_HEIGHT_FOR_LABEL = 12;
 
@@ -126,7 +126,7 @@ export function SimpleChart({
         <line x1={PAD.left} y1={PAD.top + innerHeight} x2={PAD.left + innerWidth} y2={PAD.top + innerHeight} stroke="#888" strokeWidth={1} />
         {tickNodes}
         {type === 'line' && data.length > 0 && (
-          <polyline points={points} fill="none" stroke="#1976d2" strokeWidth={2} strokeLinejoin="round" />
+          <polyline points={points} fill="none" stroke="#0176D3" strokeWidth={2} strokeLinejoin="round" />
         )}
         {type === 'bar' &&
           data.map((d, i) => {

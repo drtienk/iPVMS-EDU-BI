@@ -51,7 +51,7 @@ const VALUE_LABEL_GAP = 6;
 const HEADER_ROW_HEIGHT = 80;
 const BASELINE_FRAC = 0.5;
 
-const DEFAULT_BAR_COLOR = (y: number) => (y < 0 ? '#C62828' : '#2E7D32');
+const DEFAULT_BAR_COLOR = (y: number) => (y < 0 ? '#C23934' : '#2E844A');
 
  
 
@@ -150,7 +150,7 @@ export function GroupedBarRows({
       )}
       {rows.map((row, rowIdx) => {
         const showTotal = row.total !== undefined && row.total !== null;
-        const totalColor = showTotal && row.total! < 0 ? '#C62828' : '#2E7D32';
+        const totalColor = showTotal && row.total! < 0 ? '#C23934' : '#2E844A';
         const rowClickable = Boolean(onRowClick);
         return (
           <div
@@ -195,13 +195,14 @@ export function GroupedBarRows({
                 const yRect = yVal >= 0 ? yPixelTop : yPixelBase;
                 const fill = barColor(yVal);
                 const barCenterX = BAR_CELL_SVG_WIDTH / 2;
-                const labelInside = h >= 22;
-                const labelY = labelInside ? (yRect + h / 3) : ((yVal >= 0 ? yPixelTop : barY0) - VALUE_LABEL_GAP);
+                const labelInside = h >= 28;
+                const labelY = labelInside
+                  ? yRect + h / 2
+                  : (yVal >= 0 ? yPixelTop - VALUE_LABEL_GAP - 4 : barY0 + VALUE_LABEL_GAP + 4);
                 const labelText = barLabelFormatter(yVal);
-                const approxWidth = String(labelText).length * 8 + 10; // 黑底寬度估算
+                const labelFill = labelInside ? '#fff' : '#3E3E3C';
+                const labelFontSize = 11;
 
-
-                
                 return (
                   <div key={i} className="bar-cell">
                     <svg
@@ -232,30 +233,18 @@ export function GroupedBarRows({
                             }
                           }}
                         />
-                        
-                         
-                        {/* 黑底（先畫） */}
-                        <rect
-                          x={barCenterX - approxWidth / 2}
-                          y={labelY - 10}
-                          width={approxWidth}
-                          height={15}
-                          rx={3}
-                          fill="rgba(0,0,0,0.75)"
-                        />
-
-                        {/* 白字（後畫） */}
                         <text
                           x={barCenterX}
                           y={labelY}
                           textAnchor="middle"
                           dominantBaseline="middle"
-                          fontSize={15}
-                          fill="#fff"
+                          fontSize={labelFontSize}
+                          fontWeight="600"
+                          fill={labelFill}
+                          style={{ pointerEvents: 'none', userSelect: 'none' }}
                         >
                           {labelText}
                         </text>
-
                       </g>
                     </svg>
                   </div>

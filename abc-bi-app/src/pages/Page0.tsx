@@ -1459,6 +1459,51 @@ export function Page0() {
         {!dashboardLoading && !dashboardError && aggregates.length === 0 && (
           <p className="trend-panel-message">Upload data to see the dashboard.</p>
         )}
+        {!dashboardLoading && !dashboardError && aggregates.length >= 1 && (() => {
+          const latest = aggregates[aggregates.length - 1]!;
+          const prev = aggregates.length >= 2 ? aggregates[aggregates.length - 2] : null;
+          const pctChange = (cur: number, old: number | undefined): number | null => {
+            if (old == null || old === 0) return null;
+            return ((cur - old) / Math.abs(old)) * 100;
+          };
+          const fk = (v: number): string => {
+            const abs = Math.abs(v);
+            const s = v < 0 ? '-' : '';
+            if (abs >= 1_000_000) return `${s}$${(abs / 1_000_000).toFixed(1)}M`;
+            if (abs >= 1_000) return `${s}$${(abs / 1_000).toFixed(0)}K`;
+            return `${s}$${Math.round(abs)}`;
+          };
+          const kpis = [
+            { label: 'Total Profitability', value: latest.totalProfitability, prev: prev?.totalProfitability, fmt: fk, accentColor: latest.totalProfitability >= 0 ? '#2E844A' : '#C23934', invertTrend: false },
+            { label: 'Total Revenue', value: latest.totalRevenue, prev: prev?.totalRevenue, fmt: fk, accentColor: '#0176D3', invertTrend: false },
+            { label: 'Service Cost', value: latest.totalServiceCost, prev: prev?.totalServiceCost, fmt: fk, accentColor: '#C23934', invertTrend: true },
+            { label: 'Customer Count', value: latest.customerCount, prev: prev?.customerCount, fmt: (v: number) => String(v), accentColor: '#3E3E3C', invertTrend: false },
+          ];
+          return (
+            <div className="kpi-strip">
+              {kpis.map((kpi, i) => {
+                const t = pctChange(kpi.value, kpi.prev);
+                const tUp = t != null && t >= 0;
+                const goodTrend = kpi.invertTrend ? !tUp : tUp;
+                return (
+                  <div key={i} className="kpi-card">
+                    <div className="kpi-label">{kpi.label}</div>
+                    <div className="kpi-value" style={{ color: kpi.accentColor }}>{kpi.fmt(kpi.value)}</div>
+                    <div className="kpi-footer">
+                      <span className="kpi-period">{formatMonthMMYYYY(latest.periodNo)}</span>
+                      {t != null && (
+                        <span className="kpi-trend" style={{ color: goodTrend ? '#2E844A' : '#C23934' }}>
+                          {tUp ? '▲' : '▼'} {Math.abs(t).toFixed(1)}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
         {!dashboardLoading && !dashboardError && aggregates.length >= 1 && (
           <div className="dashboard-grid">
             <div className="dashboard-chart">
@@ -1466,7 +1511,7 @@ export function Page0() {
               <SimpleChart
                 data={aggregates.map((a) => ({ x: a.periodNo, y: a.totalProfitability }))}
                 type="bar"
-                color="#2E7D32"
+                color="#2E844A"
                 barLabelFormatter={(v) => formatMoney(v)}
                 xLabelFormatter={(x) => formatMonthMMYYYY(x)}
                 xLabel="Period"
@@ -1492,7 +1537,7 @@ export function Page0() {
               <SimpleChart
                 data={aggregates.map((a) => ({ x: a.periodNo, y: a.totalRevenue }))}
                 type="bar"
-                color="#1565C0"
+                color="#0176D3"
                 barLabelFormatter={(v) => formatMoney(v)}
                 xLabelFormatter={(x) => formatMonthMMYYYY(x)}
                 xLabel="Period"
@@ -1508,7 +1553,7 @@ export function Page0() {
               <SimpleChart
                 data={aggregates.map((a) => ({ x: a.periodNo, y: a.totalServiceCost }))}
                 type="bar"
-                color="#C62828"
+                color="#C23934"
                 barLabelFormatter={(v) => formatMoney(v)}
                 xLabelFormatter={(x) => formatMonthMMYYYY(x)}
                 xLabel="Period"
@@ -1759,8 +1804,8 @@ export function Page0() {
                       <path d={areaPath} fill={`url(#${gradId})`} />
                       {zeroY >= 0 && zeroY <= cH && <line x1={0} y1={zeroY} x2={cW} y2={zeroY} stroke="#aaa" strokeDasharray="5,4" strokeWidth={1} />}
                       <path d={linePath} fill="none" stroke={lineColor} strokeWidth={2.5} strokeLinejoin="round" />
-                      <circle cx={sx(peakRank)} cy={sy(peakVal)} r={5} fill="#2E7D32" />
-                      <text x={sx(peakRank)} y={sy(peakVal) - 10} textAnchor={peakRank > n * 0.7 ? 'end' : 'middle'} fontSize={10} fill="#2E7D32" fontWeight="600">
+                      <circle cx={sx(peakRank)} cy={sy(peakVal)} r={5} fill="#2E844A" />
+                      <text x={sx(peakRank)} y={sy(peakVal) - 10} textAnchor={peakRank > n * 0.7 ? 'end' : 'middle'} fontSize={10} fill="#2E844A" fontWeight="600">
                         Peak {formatMoney(peakVal)}
                       </text>
                       {breakEvenIdx > 0 && (
@@ -1783,15 +1828,15 @@ export function Page0() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginTop: 8 }}>
                     <div style={{ background: '#e8f5e9', borderRadius: 6, padding: '6px 10px' }}>
                       <div style={{ fontSize: 10, color: '#555' }}>Peak (top {peakRank})</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#2E7D32' }}>{formatMoney(peakVal)}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#2E844A' }}>{formatMoney(peakVal)}</div>
                     </div>
                     <div style={{ background: total >= 0 ? '#e8f5e9' : '#fce4ec', borderRadius: 6, padding: '6px 10px' }}>
                       <div style={{ fontSize: 10, color: '#555' }}>Total (all customers)</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: total >= 0 ? '#2E7D32' : '#C62828' }}>{formatMoney(total)}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: total >= 0 ? '#2E844A' : '#C23934' }}>{formatMoney(total)}</div>
                     </div>
                     <div style={{ background: '#e3f2fd', borderRadius: 6, padding: '6px 10px' }}>
                       <div style={{ fontSize: 10, color: '#555' }}>Top 20% ({top20Count})</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1565C0' }}>{formatMoney(top20Val)}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#0176D3' }}>{formatMoney(top20Val)}</div>
                     </div>
                   </div>
                 </div>
@@ -1803,7 +1848,7 @@ export function Page0() {
 
             return (
               <>
-                {renderWhale(profitPts, 'Cumulative Profitability Whale Curve', '#1565C0', 'whale-grad-profit', 'Customers ranked by profitability', true)}
+                {renderWhale(profitPts, 'Cumulative Profitability Whale Curve', '#0176D3', 'whale-grad-profit', 'Customers ranked by profitability', true)}
                 {renderWhale(revPts,    'Cumulative Revenue Whale Curve',        '#6A1B9A', 'whale-grad-rev',    'Customers ranked by revenue',        false)}
                 <p style={{ fontSize: 12, color: '#888', margin: 0 }}>Switch to By Customer to drill into individual customers.</p>
               </>
@@ -1965,7 +2010,7 @@ export function Page0() {
                   {availableItems.map((item) => {
                     const isSelected = compareSelected.some((i) => i.key === item.key);
                     const disabled = !isSelected && compareSelected.length >= 3;
-                    const profitColor = item.profit != null ? (item.profit >= 0 ? '#2E7D32' : '#C62828') : '#888';
+                    const profitColor = item.profit != null ? (item.profit >= 0 ? '#2E844A' : '#C23934') : '#888';
                     return (
                       <button key={item.key} type="button"
                         style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '5px 12px', background: isSelected ? '#e8f5e9' : 'transparent', border: 'none', borderBottom: '1px solid var(--border)', cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1, fontSize: 13 }}
@@ -1974,7 +2019,7 @@ export function Page0() {
                           else if (!disabled) setCompareSelected((prev) => [...prev, { key: item.key, label: item.label }]);
                         }}
                       >
-                        <span style={{ width: 16, flexShrink: 0, textAlign: 'center', color: '#2E7D32', fontWeight: 700 }}>{isSelected ? '✓' : ''}</span>
+                        <span style={{ width: 16, flexShrink: 0, textAlign: 'center', color: '#2E844A', fontWeight: 700 }}>{isSelected ? '✓' : ''}</span>
                         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
                         {item.profit != null && (
                           <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 600, color: profitColor, minWidth: 80, textAlign: 'right' }}>
@@ -1996,7 +2041,7 @@ export function Page0() {
                       <GroupedBarRows
                         rows={chartRows}
                         formatPeriod={(x) => compareSelected[Number(x)]?.label ?? String(x)}
-                        barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
+                        barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
                         barLabelFormatter={(y) => formatMoney(y)}
                         totalFormatter={formatMoney}
                         labelWidth={120}
@@ -2036,7 +2081,7 @@ export function Page0() {
                 <GroupedBarRows
                   rows={groupedCustomerRows}
                   formatPeriod={(x) => formatMonthMMYYYY(x)}
-                  barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
+                  barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
                   barLabelFormatter={(y) => formatMoney(y)}
                   totalFormatter={formatMoney}
                   labelWidth={160}
@@ -2061,7 +2106,7 @@ export function Page0() {
                 <GroupedBarRows
                   rows={groupedProductRows}
                   formatPeriod={(x) => formatMonthMMYYYY(x)}
-                  barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
+                  barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
                   barLabelFormatter={(y) => formatMoney(y)}
                   totalFormatter={formatMoney}
                   width={360}
@@ -2082,7 +2127,7 @@ export function Page0() {
                 <GroupedBarRows
                   rows={groupedSalesActivityCenterRows}
                   formatPeriod={(x) => formatMonthMMYYYY(x)}
-                  barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
+                  barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
                   barLabelFormatter={(y) => formatMoney(y)}
                   totalFormatter={formatMoney}
                   width={360}
@@ -2184,7 +2229,7 @@ export function Page0() {
                           <GroupedBarRows
                             rows={customerMetricChartRows}
                             formatPeriod={(x) => formatMonthMMYYYY(x)}
-                            barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
+                            barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
                             barLabelFormatter={(y) => formatMoney(y)}
                             totalFormatter={formatMoney}
                             width={320}
@@ -2272,7 +2317,7 @@ export function Page0() {
                           <GroupedBarRows
                             rows={productMetricChartRows}
                             formatPeriod={(x) => formatMonthMMYYYY(x)}
-                            barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
+                            barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
                             barLabelFormatter={(y) => formatMoney(y)}
                             totalFormatter={formatMoney}
                             labelWidth={140}
@@ -2359,7 +2404,7 @@ export function Page0() {
                           <GroupedBarRows
                             rows={sacMetricChartRows}
                             formatPeriod={(x) => formatMonthMMYYYY(x)}
-                            barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
+                            barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
                             barLabelFormatter={(y) => formatMoney(y)}
                             totalFormatter={formatMoney}
                             labelWidth={140}
@@ -2388,10 +2433,10 @@ export function Page0() {
                     {drilldown2Loading && <p className="trend-panel-message">Loading…</p>}
                     {!drilldown2Loading && drilldown2Message != null && <p className="trend-panel-message">{drilldown2Message}</p>}
                     {!drilldown2Loading && drilldown2Message == null && drilldown2Mode === 'product' && drilldown2ProductRows.length > 0 && (
-                      <GroupedBarRows rows={drilldown2ProductRows} formatPeriod={(x) => formatMonthMMYYYY(x)} barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')} barLabelFormatter={(y) => formatMoney(y)} totalFormatter={formatMoney} width={320} labelWidth={100} monthTotals={drilldown2ProductMonthTotals} labelColumnTitle="Product" />
+                      <GroupedBarRows rows={drilldown2ProductRows} formatPeriod={(x) => formatMonthMMYYYY(x)} barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')} barLabelFormatter={(y) => formatMoney(y)} totalFormatter={formatMoney} width={320} labelWidth={100} monthTotals={drilldown2ProductMonthTotals} labelColumnTitle="Product" />
                     )}
                     {!drilldown2Loading && drilldown2Message == null && drilldown2Mode === 'customer' && drilldown2CustomerRows.length > 0 && (
-                      <GroupedBarRows rows={drilldown2CustomerRows} formatPeriod={(x) => formatMonthMMYYYY(x)} barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')} barLabelFormatter={(y) => formatMoney(y)} totalFormatter={formatMoney} width={320} labelWidth={100} monthTotals={drilldown2CustomerMonthTotals} labelColumnTitle="Customer" />
+                      <GroupedBarRows rows={drilldown2CustomerRows} formatPeriod={(x) => formatMonthMMYYYY(x)} barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')} barLabelFormatter={(y) => formatMoney(y)} totalFormatter={formatMoney} width={320} labelWidth={100} monthTotals={drilldown2CustomerMonthTotals} labelColumnTitle="Customer" />
                     )}
                     {!drilldown2Loading && drilldown2Message == null && drilldown2ProductRows.length === 0 && drilldown2CustomerRows.length === 0 && (
                       <p className="trend-panel-message">No data for this SAC in selected periods.</p>
@@ -2461,7 +2506,7 @@ export function Page0() {
                       <>
                         {serviceCostChartRows.length > 0 && (
                           <div className="drill-chart" style={{ marginBottom: 12 }}>
-                            <GroupedBarRows rows={serviceCostChartRows} formatPeriod={(x) => formatMonthMMYYYY(x)} barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')} barLabelFormatter={(y) => formatMoney(y)} totalFormatter={formatMoney} width={320} labelWidth={120} monthTotals={serviceCostDrillPeriodTotals.map(({ periodNo, totalCost }) => ({ period: periodNo, total: totalCost }))} labelColumnTitle="Activity"
+                            <GroupedBarRows rows={serviceCostChartRows} formatPeriod={(x) => formatMonthMMYYYY(x)} barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')} barLabelFormatter={(y) => formatMoney(y)} totalFormatter={formatMoney} width={320} labelWidth={120} monthTotals={serviceCostDrillPeriodTotals.map(({ periodNo, totalCost }) => ({ period: periodNo, total: totalCost }))} labelColumnTitle="Activity"
                               onRowClick={({ label }) => setCustomerActivityCenterDrill({ customerId: serviceCostDrill!.customerId, activityCode: label })} />
                           </div>
                         )}
@@ -2498,7 +2543,7 @@ export function Page0() {
                         <GroupedBarRows
                           rows={compareServiceCostRows}
                           formatPeriod={(x) => compareSelected[Number(x)]?.label ?? String(x)}
-                          barColor={(y) => (y < 0 ? '#C62828' : '#1565C0')}
+                          barColor={(y) => (y < 0 ? '#C23934' : '#0176D3')}
                           barLabelFormatter={(y) => formatMoney(y)}
                           totalFormatter={formatMoney}
                           labelWidth={160}
@@ -2538,7 +2583,7 @@ export function Page0() {
                         <GroupedBarRows
                           rows={compareActivityCenterRows}
                           formatPeriod={(x) => compareSelected[Number(x)]?.label ?? String(x)}
-                          barColor={(y) => (y < 0 ? '#C62828' : '#1565C0')}
+                          barColor={(y) => (y < 0 ? '#C23934' : '#0176D3')}
                           barLabelFormatter={(y) => formatMoney(y)}
                           totalFormatter={formatMoney}
                           labelWidth={160}
@@ -2602,7 +2647,7 @@ export function Page0() {
                             <GroupedBarRows
                               rows={chartRows}
                               formatPeriod={(x) => formatMonthMMYYYY(x)}
-                              barColor={(y) => (y < 0 ? '#C62828' : '#1565C0')}
+                              barColor={(y) => (y < 0 ? '#C23934' : '#0176D3')}
                               barLabelFormatter={(y) => formatMoney(y)}
                               totalFormatter={formatMoney}
                               labelWidth={140}
@@ -2682,7 +2727,7 @@ export function Page0() {
                             <GroupedBarRows
                               rows={chartRows}
                               formatPeriod={(x) => formatMonthMMYYYY(x)}
-                              barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
+                              barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
                               barLabelFormatter={(y) => formatMoney(y)}
                               totalFormatter={formatMoney}
                               labelWidth={120}
@@ -2749,7 +2794,7 @@ export function Page0() {
                             <GroupedBarRows
                               rows={chartRows}
                               formatPeriod={(x) => formatMonthMMYYYY(x)}
-                              barColor={(y) => (y < 0 ? '#C62828' : '#2E7D32')}
+                              barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
                               barLabelFormatter={(y) => formatMoney(y)}
                               totalFormatter={formatMoney}
                               labelWidth={140}
@@ -2816,7 +2861,7 @@ export function Page0() {
                             <GroupedBarRows
                               rows={chartRows}
                               formatPeriod={(x) => formatMonthMMYYYY(x)}
-                              barColor={() => '#1565C0'}
+                              barColor={() => '#0176D3'}
                               barLabelFormatter={(y) => formatMoney(y)}
                               totalFormatter={formatMoney}
                               labelWidth={140}
