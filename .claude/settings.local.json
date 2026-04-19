@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "WebSearch",
+      "WebFetch(domain:www.fusioncharts.com)",
+      "WebFetch(domain:www.aufaitux.com)",
+      "Bash(python3 -c ' *)",
+      "Bash(python -c ' *)",
+      "Bash(pip install *)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

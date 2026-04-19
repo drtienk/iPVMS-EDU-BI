@@ -40,15 +40,15 @@ export interface GroupedBarRowsProps {
   labelColumnTitle?: string;
 }
 
-const DEFAULT_WIDTH = 520;
-const LABEL_WIDTH = 140;
+const DEFAULT_WIDTH = 600;
+const LABEL_WIDTH = 160;
 const TOTAL_COL_WIDTH = 120;
-const ROW_HEIGHT = 92;
-const INNER_HEIGHT = 180;
-const BAR_WIDTH = 28;
-const BAR_CELL_SVG_WIDTH = 104;
+const ROW_HEIGHT = 120;
+const INNER_HEIGHT = 240;
+const BAR_WIDTH = 38;
+const BAR_CELL_SVG_WIDTH = 130;
 const VALUE_LABEL_GAP = 6;
-const HEADER_ROW_HEIGHT = 60;
+const HEADER_ROW_HEIGHT = 80;
 const BASELINE_FRAC = 0.5;
 
 const DEFAULT_BAR_COLOR = (y: number) => (y < 0 ? '#C62828' : '#2E7D32');
@@ -122,8 +122,8 @@ export function GroupedBarRows({
           {periods.map((period, i) => (
   <div key={i} className="bar-cell" style={{ paddingBottom: 2 }}>
     <div style={{ width: BAR_CELL_SVG_WIDTH, margin: '0 auto', textAlign: 'center' }}>
-      <div style={{ fontSize: 10, color: '#555' }}>{formatPeriod(period)}</div>
-      <div style={{ fontSize: 11, fontWeight: 600, color: '#333' }}>
+      <div style={{ fontSize: 13, color: '#555' }}>{formatPeriod(period)}</div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: '#333' }}>
         {formatTotal(monthTotals[i]?.total ?? 0)}
       </div>
     </div>
@@ -271,7 +271,7 @@ export function GroupedBarRows({
                   textAlign: 'right',
                   paddingRight: 8,
                   paddingLeft: 8,
-                  fontSize: 12,
+                  fontSize: 15,
                   fontWeight: 600,
                   color: showTotal ? totalColor : '#333',
                   display: 'flex',

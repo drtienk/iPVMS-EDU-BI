@@ -59,10 +59,10 @@ function getPeriodNo(row: Record<string, unknown>, fallbackYearMonth?: { year: n
 
 function getBuCode(row: Record<string, unknown>, tableName: TableName): string {
   if (tableName === 'CustomerProductProfit') {
-    const v = row[' Business Unit Code'] ?? row['Business Unit Code'];
+    const v = row['Business Unit Code'] ?? row[' Business Unit Code'];
     return extractBuCode(v != null ? String(v) : '');
   }
-  const v = row[' Business Unit'] ?? row['Business Unit'];
+  const v = row['Business Unit'] ?? row[' Business Unit'];
   return extractBuCode(v != null ? String(v) : '');
 }
 
@@ -86,13 +86,20 @@ function getCustomerId(row: Record<string, unknown>, tableName: TableName): stri
 
 function getActivityCenterKey(row: Record<string, unknown>, tableName: TableName): string {
   if (tableName === 'CustomerServiceCost' || tableName === 'ActivityDriver' || tableName === 'Resource') {
-    return normalizeActivityCenter(row[' Activity Center'] as string);
+    // trimKeys strips leading spaces, so try both forms
+    const v = row['Activity Center'] ?? row[' Activity Center'];
+    return normalizeActivityCenter(v as string);
   }
   if (tableName === 'ActivityCenter+ActivityModel') {
-    return normalizeActivityCenter(row[' Activity Center- Level 2'] as string);
+    const v = row['Activity Center- Level 2'] ?? row[' Activity Center- Level 2'];
+    return normalizeActivityCenter(v as string);
   }
   if (tableName === 'CustomerProductProfit') {
     return normalizeActivityCenter(row['SalesActivityCenter'] as string);
+  }
+  if (tableName === 'IncomeStatment') {
+    const v = row['Activity Center Code'] ?? row[' Activity Center Code'];
+    return normalizeActivityCenter(v as string);
   }
   return '';
 }
@@ -102,7 +109,8 @@ function getActivityCodeKey(row: Record<string, unknown>, tableName: TableName):
     return extractCode(row['Code'] as string);
   }
   if (tableName === 'ActivityDriver' || tableName === 'ActivityCenter+ActivityModel') {
-    return extractCode((row[' Activity - Level 2'] ?? row['Activity - Level 2']) as string);
+    const v = row['Activity - Level 2'] ?? row[' Activity - Level 2'];
+    return extractCode(v as string);
   }
   return '';
 }
