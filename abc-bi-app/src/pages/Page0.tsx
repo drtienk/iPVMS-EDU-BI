@@ -451,6 +451,9 @@ export function Page0() {
   const [compareServiceCostDrill, setCompareServiceCostDrill] = useState(false);
   const [compareServiceCostRows, setCompareServiceCostRows] = useState<GroupedBarRow[]>([]);
   const [compareServiceCostLoading, setCompareServiceCostLoading] = useState(false);
+  const [compareActivityCenterDrill, setCompareActivityCenterDrill] = useState<{ activityCode: string } | null>(null);
+  const [compareActivityCenterRows, setCompareActivityCenterRows] = useState<GroupedBarRow[]>([]);
+  const [compareActivityCenterLoading, setCompareActivityCenterLoading] = useState(false);
   const [customerSortMode, setCustomerSortMode] = useState<'top' | 'bottom'>('top');
   const [topN, setTopN] = useState(DEFAULT_TOP_N);
   const [showAllRanked, setShowAllRanked] = useState(false);
@@ -512,7 +515,7 @@ export function Page0() {
   const level2Ref = useRef<HTMLDivElement>(null);
   const level3Ref = useRef<HTMLDivElement>(null);
   const level4Ref = useRef<HTMLDivElement>(null);
-  const activeLevel = (productServiceCostCenterDrill != null || customerActivityCenterDrill != null) ? 4 : (serviceCostDrill != null || productServiceCostDrill != null || sacServiceCostDrill != null) ? 3 : (customerDrill != null || drilldown2 != null || productDrill != null || compareServiceCostDrill) ? 2 : 1;
+  const activeLevel = (productServiceCostCenterDrill != null || customerActivityCenterDrill != null) ? 4 : (serviceCostDrill != null || productServiceCostDrill != null || sacServiceCostDrill != null || compareActivityCenterDrill != null) ? 3 : (customerDrill != null || drilldown2 != null || productDrill != null || compareServiceCostDrill) ? 2 : 1;
 
   useEffect(() => {
     if (customerDrill != null || drilldown2 != null) {
@@ -1143,6 +1146,57 @@ export function Page0() {
     return () => { cancelled = true; };
   }, [compareServiceCostDrill, compareSelected, compareType, selectedPeriods]);
 
+  useEffect(() => {
+    if (compareActivityCenterDrill == null || compareSelected.length === 0 || selectedPeriods.length === 0) {
+      setCompareActivityCenterRows([]);
+      return;
+    }
+    let cancelled = false;
+    setCompareActivityCenterLoading(true);
+    const { activityCode } = compareActivityCenterDrill;
+    const getItemCenters = async (item: { key: string; label: string }): Promise<Map<string, number>> => {
+      const tables = await Promise.all(selectedPeriods.map((p) => getTable<CustomerServiceCostRow>(p, 'CustomerServiceCost')));
+      const centerMap = new Map<string, number>();
+      tables.forEach((rows) => {
+        for (const r of rows) {
+          const rr = r as unknown as Record<string, unknown>;
+          let matches = false;
+          if (compareType === 'product') {
+            const sp = String(r.ServiceProduct ?? '').trim();
+            const spName = sp.includes(':') ? sp.split(':').slice(1).join(':').trim() : sp;
+            matches = spName === item.label || sp === item.label;
+          } else if (compareType === 'sac') {
+            const center = String(r.activityCenterKey || rr['Activity Center'] || rr[' Activity Center'] || '').trim();
+            matches = center === item.key;
+          } else {
+            matches = String(r.customerId ?? '').trim() === item.key || String(rr['Customer'] ?? '').trim() === item.label;
+          }
+          if (!matches) continue;
+          const code = String(rr['Code'] ?? r.activityCodeKey ?? '').trim() || '(Unknown)';
+          if (code !== activityCode) continue;
+          const acKey = String(r.activityCenterKey || rr['Activity Center'] || rr[' Activity Center'] || '').trim() || '(Unknown)';
+          centerMap.set(acKey, (centerMap.get(acKey) ?? 0) + toNumber(r.Amount, 0));
+        }
+      });
+      return centerMap;
+    };
+    Promise.all(compareSelected.map((item) => getItemCenters(item)))
+      .then((maps) => {
+        if (cancelled) return;
+        const allCenters = new Set<string>();
+        maps.forEach((m) => m.forEach((_, k) => allCenters.add(k)));
+        const rows: GroupedBarRow[] = Array.from(allCenters).sort().map((center) => ({
+          group: center,
+          values: compareSelected.map((_, idx) => ({ x: idx, y: maps[idx]?.get(center) ?? 0 })),
+          total: maps.reduce((s, m) => s + (m.get(center) ?? 0), 0),
+        }));
+        rows.sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
+        setCompareActivityCenterRows(rows);
+      })
+      .catch(() => { if (!cancelled) setCompareActivityCenterRows([]); })
+      .finally(() => { if (!cancelled) setCompareActivityCenterLoading(false); });
+    return () => { cancelled = true; };
+  }, [compareActivityCenterDrill, compareSelected, compareType, selectedPeriods]);
 
   useEffect(() => {
     if (drilldown2 == null || drilldown2.periods.length === 0) {
@@ -1486,22 +1540,33 @@ export function Page0() {
         <aside ref={railRef} className="drill-side-panel">
           <div className="side-panel-nav">
             <div className="side-panel-crumbs">
+              {/* Level 1 — always shown */}
               <button
                 type="button"
                 className={`crumb${activeLevel === 1 ? ' active' : ''}`}
-                onClick={() => { setCustomerDrill(null); setProductDrill(null); setProductServiceCostDrill(null); setProductServiceCostCenterDrill(null); setDrilldown2(null); setServiceCostDrill(null); setCustomerActivityCenterDrill(null); setSacServiceCostDrill(null); setCompareServiceCostDrill(false); }}
+                onClick={() => {
+                  setCustomerDrill(null); setProductDrill(null); setProductServiceCostDrill(null); setProductServiceCostCenterDrill(null);
+                  setDrilldown2(null); setServiceCostDrill(null); setCustomerActivityCenterDrill(null);
+                  setSacServiceCostDrill(null); setCompareServiceCostDrill(false); setCompareActivityCenterDrill(null);
+                }}
               >
                 {selectedPeriods.length <= 1
                   ? `Period ${selectedPeriodNo}`
                   : `Period ${selectedPeriods[0]}–${selectedPeriods[selectedPeriods.length - 1]}`}
               </button>
-              {(customerDrill != null || productDrill != null || drilldown2 != null || serviceCostDrill != null || productServiceCostDrill != null || productServiceCostCenterDrill != null || compareServiceCostDrill) && (
+
+              {/* Level 2 — customer / product / SAC / compare service cost */}
+              {(customerDrill != null || productDrill != null || drilldown2 != null || compareServiceCostDrill) && (
                 <>
                   <span className="crumb-sep">›</span>
                   <button
                     type="button"
                     className={`crumb${activeLevel === 2 ? ' active' : ''}`}
-                    onClick={() => { setServiceCostDrill(null); setCustomerActivityCenterDrill(null); setProductServiceCostDrill(null); setProductServiceCostCenterDrill(null); setSacServiceCostDrill(null); setCompareServiceCostDrill(false); }}
+                    onClick={() => {
+                      setServiceCostDrill(null); setCustomerActivityCenterDrill(null);
+                      setProductServiceCostDrill(null); setProductServiceCostCenterDrill(null);
+                      setSacServiceCostDrill(null); setCompareActivityCenterDrill(null);
+                    }}
                   >
                     {compareServiceCostDrill
                       ? 'Compare: Service Cost'
@@ -1509,33 +1574,47 @@ export function Page0() {
                         ? customerDrill.customerName
                         : productDrill != null
                           ? productDrill.productName
-                          : drilldown2?.salesActivityCenterKey ?? productServiceCostCenterDrill?.productName}
+                          : drilldown2?.salesActivityCenterKey ?? ''}
                   </button>
                 </>
               )}
-              {(serviceCostDrill != null || productServiceCostDrill != null || productServiceCostCenterDrill != null || sacServiceCostDrill != null) && (
+
+              {/* Level 3 — service cost (customer/product/SAC) or compare activity centers */}
+              {(serviceCostDrill != null || productServiceCostDrill != null || sacServiceCostDrill != null || compareActivityCenterDrill != null) && (
                 <>
                   <span className="crumb-sep">›</span>
                   <button
                     type="button"
                     className={`crumb${activeLevel === 3 ? ' active' : ''}`}
-                    onClick={() => { setProductServiceCostCenterDrill(null); setSacServiceCostDrill(null); }}
+                    onClick={() => {
+                      setProductServiceCostCenterDrill(null);
+                      setCustomerActivityCenterDrill(null);
+                      setCompareActivityCenterDrill(null);
+                    }}
                   >
-                    Service Cost
+                    {compareActivityCenterDrill != null
+                      ? compareActivityCenterDrill.activityCode
+                      : 'Service Cost'}
                   </button>
                 </>
               )}
-              {productServiceCostCenterDrill != null && (
+
+              {/* Level 4 — activity centers (customer path: activityCode, product path: centerKey) */}
+              {(customerActivityCenterDrill != null || productServiceCostCenterDrill != null) && (
                 <>
                   <span className="crumb-sep">›</span>
-                  <span className="crumb active">{productServiceCostCenterDrill.centerKey}</span>
+                  <span className="crumb active">
+                    {customerActivityCenterDrill != null
+                      ? customerActivityCenterDrill.activityCode
+                      : productServiceCostCenterDrill?.centerKey ?? ''}
+                  </span>
                 </>
               )}
             </div>
             <button
               type="button"
               className="side-panel-close"
-              onClick={() => { setSelectedPeriodNo(null); setSelectedPeriods([]); setCustomerDrill(null); setProductDrill(null); setProductServiceCostDrill(null); setProductServiceCostCenterDrill(null); setDrilldown2(null); setServiceCostDrill(null); setCustomerActivityCenterDrill(null); setSacServiceCostDrill(null); setCompareServiceCostDrill(false); }}
+              onClick={() => { setSelectedPeriodNo(null); setSelectedPeriods([]); setCustomerDrill(null); setProductDrill(null); setProductServiceCostDrill(null); setProductServiceCostCenterDrill(null); setDrilldown2(null); setServiceCostDrill(null); setCustomerActivityCenterDrill(null); setSacServiceCostDrill(null); setCompareServiceCostDrill(false); setCompareActivityCenterDrill(null); }}
             >
               ✕ Close
             </button>
@@ -2405,7 +2484,7 @@ export function Page0() {
   >
                 <div className="drill-panel-header drilldown-rail-column-header">
                   <span className="drill-panel-title">Service Cost by Activity — {compareSelected.map((i) => i.label).join(' vs ')}</span>
-                  <button type="button" className="drilldown-rail-close" onClick={() => setCompareServiceCostDrill(false)}>Close</button>
+                  <button type="button" className="drilldown-rail-close" onClick={() => { setCompareServiceCostDrill(false); setCompareActivityCenterDrill(null); }}>Close</button>
                 </div>
                 <div className="drill-panel-body drilldown-rail-column-body">
                   {compareServiceCostLoading && <p className="trend-panel-message">Loading…</p>}
@@ -2425,12 +2504,52 @@ export function Page0() {
                           labelWidth={160}
                           monthTotals={itemMonthTotals}
                           labelColumnTitle="Activity"
+                          onRowClick={({ label }) => setCompareActivityCenterDrill({ activityCode: label })}
                         />
                       </div>
                     );
                   })()}
                   {!compareServiceCostLoading && compareServiceCostRows.length === 0 && (
                     <p className="trend-panel-message">No service cost activity data found for the selected items.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Level 3: Compare Activity Centers for one Activity Code */}
+            {compareActivityCenterDrill != null && (
+  <div
+    ref={level3Ref}
+    className={`drill-panel drilldown-rail-column level-3 ${activeLevel === 3 ? 'active' : 'inactive'} enter`}
+  >
+                <div className="drill-panel-header drilldown-rail-column-header">
+                  <span className="drill-panel-title">Activity Centers — {compareActivityCenterDrill.activityCode}</span>
+                  <button type="button" className="drilldown-rail-close" onClick={() => setCompareActivityCenterDrill(null)}>Close</button>
+                </div>
+                <div className="drill-panel-body drilldown-rail-column-body">
+                  {compareActivityCenterLoading && <p className="trend-panel-message">Loading…</p>}
+                  {!compareActivityCenterLoading && compareActivityCenterRows.length > 0 && (() => {
+                    const itemMonthTotals = compareSelected.map((_item, idx) => ({
+                      period: idx,
+                      total: compareActivityCenterRows.reduce((s, r) => s + (r.values[idx]?.y ?? 0), 0),
+                    }));
+                    return (
+                      <div className="drill-chart">
+                        <GroupedBarRows
+                          rows={compareActivityCenterRows}
+                          formatPeriod={(x) => compareSelected[Number(x)]?.label ?? String(x)}
+                          barColor={(y) => (y < 0 ? '#C62828' : '#1565C0')}
+                          barLabelFormatter={(y) => formatMoney(y)}
+                          totalFormatter={formatMoney}
+                          labelWidth={160}
+                          monthTotals={itemMonthTotals}
+                          labelColumnTitle="Activity Center"
+                        />
+                      </div>
+                    );
+                  })()}
+                  {!compareActivityCenterLoading && compareActivityCenterRows.length === 0 && (
+                    <p className="trend-panel-message">No activity center data found for this activity.</p>
                   )}
                 </div>
               </div>
