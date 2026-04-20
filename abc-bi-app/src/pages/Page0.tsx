@@ -4,12 +4,16 @@ import { useRefreshContext } from '../contexts/RefreshContext';
 import { DataTable } from '../components/DataTable';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { SimpleChart, formatMonthMMYYYY } from '../components/SimpleChart';
-import { GroupedBarRows } from '../components/GroupedBarRows';
 import type { GroupedBarRow } from '../components/GroupedBarRows';
 import { HorizontalBarTable } from '../components/HorizontalBarTable';
 import type { HBRow } from '../components/HorizontalBarTable';
+import { CompareDrillTable } from '../components/CompareDrillTable';
+import { MetricBreakdownTable } from '../components/MetricBreakdownTable';
+import type { MBMetricRow } from '../components/MetricBreakdownTable';
+import { ServiceCostDrillTable } from '../components/ServiceCostDrillTable';
+import type { SCDRow } from '../components/ServiceCostDrillTable';
 import { getTableData, listPeriods, getTable } from '../dataApi';
-import { formatMoney, formatNumber1, formatPercent } from '../utils/format';
+import { formatMoney, formatPercent } from '../utils/format';
 import { toNumber } from '../normalize';
 import type {
   CustomerProductProfitRow,
@@ -28,7 +32,6 @@ const DRILLDOWN_TOP_CUSTOMERS = 10;
 /** First-layer By Customer: show top N customers by (latest period) profit + Others */
 const DRILLDOWN_TOP_CUSTOMERS_LAYER1 = 20;
 /** Service Cost Breakdown chart: show top N activities by latest period cost */
-const SERVICE_COST_CHART_TOP_N = 12;
 
 type Drilldown2State = null | {
   salesActivityCenterKey: string;
@@ -496,8 +499,8 @@ export function Page0() {
   const [drilldown2Mode, setDrilldown2Mode] = useState<'product' | 'customer'>('product');
   const [drilldown2ProductRows, setDrilldown2ProductRows] = useState<GroupedBarRow[]>([]);
   const [drilldown2CustomerRows, setDrilldown2CustomerRows] = useState<GroupedBarRow[]>([]);
-  const [drilldown2ProductMonthTotals, setDrilldown2ProductMonthTotals] = useState<{ period: number; total: number }[]>([]);
-  const [drilldown2CustomerMonthTotals, setDrilldown2CustomerMonthTotals] = useState<{ period: number; total: number }[]>([]);
+  const [_drilldown2ProductMonthTotals, setDrilldown2ProductMonthTotals] = useState<{ period: number; total: number }[]>([]);
+  const [_drilldown2CustomerMonthTotals, setDrilldown2CustomerMonthTotals] = useState<{ period: number; total: number }[]>([]);
   const [drilldown2Total, setDrilldown2Total] = useState<number | null>(null);
   const [drilldown2Loading, setDrilldown2Loading] = useState(false);
   const [drilldown2Message, setDrilldown2Message] = useState<string | null>(null);
@@ -2237,75 +2240,20 @@ export function Page0() {
                 </div>
                 <div className="drill-panel-body drilldown-rail-column-body">
                   {customerDrillLoading && <p className="trend-panel-message">Loading…</p>}
-                  {!customerDrillLoading && customerDrillMetrics.length > 0 && (() => {
-                    const periodKeys = customerDrillMetrics.map((m) => String(m.periodNo));
-                    const customerMetricChartRows: GroupedBarRow[] = [
-                      { group: 'Customer Revenue', values: customerDrillMetrics.map((m) => ({ x: m.periodNo, y: m.revenue })), total: customerDrillMetrics.reduce((s, m) => s + m.revenue, 0) },
-                      { group: 'COGS', values: customerDrillMetrics.map((m) => ({ x: m.periodNo, y: m.cogs })), total: customerDrillMetrics.reduce((s, m) => s + m.cogs, 0) },
-                      { group: 'Service Cost', values: customerDrillMetrics.map((m) => ({ x: m.periodNo, y: m.serviceCost })), total: customerDrillMetrics.reduce((s, m) => s + m.serviceCost, 0) },
-                      { group: 'Management Cost', values: customerDrillMetrics.map((m) => ({ x: m.periodNo, y: m.managementCost })), total: customerDrillMetrics.reduce((s, m) => s + m.managementCost, 0) },
-                    ];
-                    const customerMetricMonthTotals = selectedPeriods.map((periodNo) => ({
-                      period: periodNo,
-                      total: customerDrillMetrics.filter((m) => m.periodNo === periodNo).reduce((s, m) => s + m.revenue + m.cogs + m.serviceCost + m.managementCost, 0),
-                    }));
-                    const customerDrillData: Record<string, string | number>[] = [
-                      { metric: 'Customer Revenue', ...Object.fromEntries(customerDrillMetrics.map((m) => [String(m.periodNo), m.revenue])) },
-                      { metric: 'COGS', ...Object.fromEntries(customerDrillMetrics.map((m) => [String(m.periodNo), m.cogs])) },
-                      { metric: 'Service Cost', ...Object.fromEntries(customerDrillMetrics.map((m) => [String(m.periodNo), m.serviceCost])) },
-                      { metric: 'Management Cost', ...Object.fromEntries(customerDrillMetrics.map((m) => [String(m.periodNo), m.managementCost])) },
-                      { metric: 'Customer Profitability', ...Object.fromEntries(customerDrillMetrics.map((m) => [String(m.periodNo), m.revenue - m.cogs - m.serviceCost - m.managementCost])) },
-                    ];
-                    const customerDrillColumns: ColumnDef<Record<string, string | number>, unknown>[] = [
-                      { accessorKey: 'metric', header: 'Metric' },
-                      ...periodKeys.map((p) => ({
-                        accessorKey: p,
-                        header: formatMonthMMYYYY(Number(p)),
-                        cell: ({ getValue, row }: { getValue: () => unknown; row: { original: Record<string, string | number> } }) => {
-                          const value = Number(getValue() ?? 0);
-                          const formatted = formatMoney(value);
-                          return row.original.metric === 'Customer Profitability' ? (
-                            <span className={value >= 0 ? 'profit-positive' : 'profit-negative'}>{formatted}</span>
-                          ) : (
-                            formatted
-                          );
-                        },
-                      })),
-                    ];
-                    return (
-                      <>
-                        <div className="drill-chart" style={{ marginBottom: 12 }}>
-                          <GroupedBarRows
-                            rows={customerMetricChartRows}
-                            formatPeriod={(x) => formatMonthMMYYYY(x)}
-                            barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
-                            barLabelFormatter={(y) => formatMoney(y)}
-                            totalFormatter={formatMoney}
-                            width={320}
-                            labelWidth={120}
-                            monthTotals={customerMetricMonthTotals}
-                            onRowClick={({ label }) => {
-                              if (label === 'Service Cost') {
-                                setServiceCostDrill({ customerId: customerDrill.customerId, customerName: customerDrill.customerName });
-                              }
-                            }}
-                          />
-                        </div>
-                        <DataTable
-                          data={customerDrillData}
-                          columns={customerDrillColumns}
-                          searchable={false}
-                          pageSize={10}
-                          sortable={false}
-                          onRowClick={(row) => {
-                            if (String(row.metric) === 'Service Cost') {
-                              setServiceCostDrill({ customerId: customerDrill.customerId, customerName: customerDrill.customerName });
-                            }
-                          }}
-                        />
-                      </>
-                    );
-                  })()}
+                  {!customerDrillLoading && customerDrillMetrics.length > 0 && (
+                    <MetricBreakdownTable
+                      columnLabels={customerDrillMetrics.map((m) => formatMonthMMYYYY(m.periodNo))}
+                      metrics={[
+                        { key: 'revenue',        label: 'Revenue',              values: customerDrillMetrics.map((m) => m.revenue) },
+                        { key: 'cogs',           label: 'COGS',                 values: customerDrillMetrics.map((m) => m.cogs) },
+                        { key: 'serviceCost',    label: 'Service Cost',         values: customerDrillMetrics.map((m) => m.serviceCost), drillable: true },
+                        { key: 'managementCost', label: 'Mgmt Cost',            values: customerDrillMetrics.map((m) => m.managementCost) },
+                        { key: 'profit',         label: 'Customer Profitability', values: customerDrillMetrics.map((m) => m.revenue - m.cogs - m.serviceCost - m.managementCost), isSummary: true },
+                      ] satisfies MBMetricRow[]}
+                      formatValue={formatMoney}
+                      onDrill={() => setServiceCostDrill({ customerId: customerDrill.customerId, customerName: customerDrill.customerName })}
+                    />
+                  )}
                   {!customerDrillLoading && customerDrillMetrics.length === 0 && (
                     <p className="trend-panel-message">No metrics for this customer.</p>
                   )}
@@ -2324,76 +2272,20 @@ export function Page0() {
                 </div>
                 <div className="drill-panel-body drilldown-rail-column-body">
                   {productDrillLoading && <p className="trend-panel-message">Loading…</p>}
-                  {!productDrillLoading && productDrillMetrics.length > 0 && (() => {
-                    const periodKeys = productDrillMetrics.map((m) => String(m.periodNo));
-                    const productMetricChartRows: GroupedBarRow[] = [
-                      { group: 'Product Revenue', values: productDrillMetrics.map((m) => ({ x: m.periodNo, y: m.revenue })), total: productDrillMetrics.reduce((s, m) => s + m.revenue, 0) },
-                      { group: 'COGS', values: productDrillMetrics.map((m) => ({ x: m.periodNo, y: m.cogs })), total: productDrillMetrics.reduce((s, m) => s + m.cogs, 0) },
-                      { group: 'Service Cost', values: productDrillMetrics.map((m) => ({ x: m.periodNo, y: m.serviceCost })), total: productDrillMetrics.reduce((s, m) => s + m.serviceCost, 0) },
-                      { group: 'Management Cost', values: productDrillMetrics.map((m) => ({ x: m.periodNo, y: m.managementCost })), total: productDrillMetrics.reduce((s, m) => s + m.managementCost, 0) },
-                      { group: 'Product Profitability', values: productDrillMetrics.map((m) => ({ x: m.periodNo, y: m.productProfit })), total: productDrillMetrics.reduce((s, m) => s + m.productProfit, 0) },
-                    ];
-                    const productMonthTotals = selectedPeriods.map((periodNo) => ({
-                      period: periodNo,
-                      total: productDrillMetrics.filter((m) => m.periodNo === periodNo).reduce((s, m) => s + m.productProfit, 0),
-                    }));
-                    const productDrillData: Record<string, string | number>[] = [
-                      { metric: 'Product Revenue', ...Object.fromEntries(productDrillMetrics.map((m) => [String(m.periodNo), m.revenue])) },
-                      { metric: 'COGS', ...Object.fromEntries(productDrillMetrics.map((m) => [String(m.periodNo), m.cogs])) },
-                      { metric: 'Service Cost', ...Object.fromEntries(productDrillMetrics.map((m) => [String(m.periodNo), m.serviceCost])) },
-                      { metric: 'Management Cost', ...Object.fromEntries(productDrillMetrics.map((m) => [String(m.periodNo), m.managementCost])) },
-                      { metric: 'Product Profitability', ...Object.fromEntries(productDrillMetrics.map((m) => [String(m.periodNo), m.productProfit])) },
-                    ];
-                    const productDrillColumns: ColumnDef<Record<string, string | number>, unknown>[] = [
-                      { accessorKey: 'metric', header: 'Metric' },
-                      ...periodKeys.map((p) => ({
-                        accessorKey: p,
-                        header: formatMonthMMYYYY(Number(p)),
-                        cell: ({ getValue, row }: { getValue: () => unknown; row: { original: Record<string, string | number> } }) => {
-                          const value = Number(getValue() ?? 0);
-                          const formatted = formatMoney(value);
-                          return row.original.metric === 'Product Profitability' ? (
-                            <span className={value >= 0 ? 'profit-positive' : 'profit-negative'}>{formatted}</span>
-                          ) : (
-                            formatted
-                          );
-                        },
-                      })),
-                    ];
-                    return (
-                      <>
-                        <div className="drill-chart" style={{ marginBottom: 12 }}>
-                          <GroupedBarRows
-                            rows={productMetricChartRows}
-                            formatPeriod={(x) => formatMonthMMYYYY(x)}
-                            barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
-                            barLabelFormatter={(y) => formatMoney(y)}
-                            totalFormatter={formatMoney}
-                            labelWidth={140}
-                            monthTotals={productMonthTotals}
-                            labelColumnTitle="Metric"
-                            onRowClick={({ label }) => {
-                              if (label === 'Service Cost') {
-                                setProductServiceCostDrill({ productName: productDrill.productName });
-                              }
-                            }}
-                          />
-                        </div>
-                        <DataTable
-                          data={productDrillData}
-                          columns={productDrillColumns}
-                          searchable={false}
-                          pageSize={10}
-                          sortable={false}
-                          onRowClick={(row) => {
-                            if (String(row.metric) === 'Service Cost') {
-                              setProductServiceCostDrill({ productName: productDrill.productName });
-                            }
-                          }}
-                        />
-                      </>
-                    );
-                  })()}
+                  {!productDrillLoading && productDrillMetrics.length > 0 && (
+                    <MetricBreakdownTable
+                      columnLabels={productDrillMetrics.map((m) => formatMonthMMYYYY(m.periodNo))}
+                      metrics={[
+                        { key: 'revenue',        label: 'Revenue',               values: productDrillMetrics.map((m) => m.revenue) },
+                        { key: 'cogs',           label: 'COGS',                  values: productDrillMetrics.map((m) => m.cogs) },
+                        { key: 'serviceCost',    label: 'Service Cost',          values: productDrillMetrics.map((m) => m.serviceCost), drillable: true },
+                        { key: 'managementCost', label: 'Mgmt Cost',             values: productDrillMetrics.map((m) => m.managementCost) },
+                        { key: 'profit',         label: 'Product Profitability', values: productDrillMetrics.map((m) => m.productProfit), isSummary: true },
+                      ] satisfies MBMetricRow[]}
+                      formatValue={formatMoney}
+                      onDrill={() => setProductServiceCostDrill({ productName: productDrill.productName })}
+                    />
+                  )}
                   {!productDrillLoading && productDrillMetrics.length === 0 && (
                     <p className="trend-panel-message">No metrics for this product.</p>
                   )}
@@ -2414,64 +2306,20 @@ export function Page0() {
                 <div className="drill-panel-body drilldown-rail-column-body">
                   {/* Financial Metrics */}
                   {sacDrillMetricsLoading && <p className="trend-panel-message">Loading metrics…</p>}
-                  {!sacDrillMetricsLoading && sacDrillMetrics.length > 0 && (() => {
-                    const periodKeys = sacDrillMetrics.map((m) => String(m.periodNo));
-                    const sacMetricChartRows: GroupedBarRow[] = [
-                      { group: 'Revenue', values: sacDrillMetrics.map((m) => ({ x: m.periodNo, y: m.revenue })), total: sacDrillMetrics.reduce((s, m) => s + m.revenue, 0) },
-                      { group: 'COGS', values: sacDrillMetrics.map((m) => ({ x: m.periodNo, y: m.cogs })), total: sacDrillMetrics.reduce((s, m) => s + m.cogs, 0) },
-                      { group: 'Service Cost', values: sacDrillMetrics.map((m) => ({ x: m.periodNo, y: m.serviceCost })), total: sacDrillMetrics.reduce((s, m) => s + m.serviceCost, 0) },
-                      { group: 'Management Cost', values: sacDrillMetrics.map((m) => ({ x: m.periodNo, y: m.managementCost })), total: sacDrillMetrics.reduce((s, m) => s + m.managementCost, 0) },
-                      { group: 'Profitability', values: sacDrillMetrics.map((m) => ({ x: m.periodNo, y: m.profitability })), total: sacDrillMetrics.reduce((s, m) => s + m.profitability, 0) },
-                    ];
-                    const sacMonthTotals = drilldown2.periods.map((periodNo) => ({
-                      period: periodNo,
-                      total: sacDrillMetrics.find((m) => m.periodNo === periodNo)?.profitability ?? 0,
-                    }));
-                    const sacMetricData: Record<string, string | number>[] = [
-                      { metric: 'Revenue', ...Object.fromEntries(sacDrillMetrics.map((m) => [String(m.periodNo), m.revenue])) },
-                      { metric: 'COGS', ...Object.fromEntries(sacDrillMetrics.map((m) => [String(m.periodNo), m.cogs])) },
-                      { metric: 'Service Cost', ...Object.fromEntries(sacDrillMetrics.map((m) => [String(m.periodNo), m.serviceCost])) },
-                      { metric: 'Management Cost', ...Object.fromEntries(sacDrillMetrics.map((m) => [String(m.periodNo), m.managementCost])) },
-                      { metric: 'Profitability', ...Object.fromEntries(sacDrillMetrics.map((m) => [String(m.periodNo), m.profitability])) },
-                    ];
-                    const sacMetricCols: ColumnDef<Record<string, string | number>, unknown>[] = [
-                      { accessorKey: 'metric', header: 'Metric' },
-                      ...periodKeys.map((p) => ({
-                        accessorKey: p,
-                        header: formatMonthMMYYYY(Number(p)),
-                        cell: ({ getValue, row }: { getValue: () => unknown; row: { original: Record<string, string | number> } }) => {
-                          const value = Number(getValue() ?? 0);
-                          return row.original.metric === 'Profitability' ? (
-                            <span className={value >= 0 ? 'profit-positive' : 'profit-negative'}>{formatMoney(value)}</span>
-                          ) : formatMoney(value);
-                        },
-                      })),
-                    ];
-                    return (
-                      <>
-                        <div className="drill-chart" style={{ marginBottom: 12 }}>
-                          <GroupedBarRows
-                            rows={sacMetricChartRows}
-                            formatPeriod={(x) => formatMonthMMYYYY(x)}
-                            barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
-                            barLabelFormatter={(y) => formatMoney(y)}
-                            totalFormatter={formatMoney}
-                            labelWidth={140}
-                            monthTotals={sacMonthTotals}
-                            labelColumnTitle="Metric"
-                            onRowClick={({ label }) => {
-                              if (label === 'Service Cost') setSacServiceCostDrill({ sacKey: drilldown2.salesActivityCenterKey });
-                            }}
-                          />
-                        </div>
-                        <DataTable data={sacMetricData} columns={sacMetricCols} searchable={false} pageSize={10} sortable={false}
-                          onRowClick={(row) => {
-                            if (String(row.metric) === 'Service Cost') setSacServiceCostDrill({ sacKey: drilldown2.salesActivityCenterKey });
-                          }}
-                        />
-                      </>
-                    );
-                  })()}
+                  {!sacDrillMetricsLoading && sacDrillMetrics.length > 0 && (
+                    <MetricBreakdownTable
+                      columnLabels={sacDrillMetrics.map((m) => formatMonthMMYYYY(m.periodNo))}
+                      metrics={[
+                        { key: 'revenue',        label: 'Revenue',       values: sacDrillMetrics.map((m) => m.revenue) },
+                        { key: 'cogs',           label: 'COGS',          values: sacDrillMetrics.map((m) => m.cogs) },
+                        { key: 'serviceCost',    label: 'Service Cost',  values: sacDrillMetrics.map((m) => m.serviceCost), drillable: true },
+                        { key: 'managementCost', label: 'Mgmt Cost',     values: sacDrillMetrics.map((m) => m.managementCost) },
+                        { key: 'profit',         label: 'Profitability', values: sacDrillMetrics.map((m) => m.profitability), isSummary: true },
+                      ] satisfies MBMetricRow[]}
+                      formatValue={formatMoney}
+                      onDrill={() => setSacServiceCostDrill({ sacKey: drilldown2.salesActivityCenterKey })}
+                    />
+                  )}
                   {/* Product / Customer breakdown */}
                   <div style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 12 }}>
                     {drilldown2Total != null && <p style={{ margin: '0 0 8px', fontSize: 12, color: '#555' }}>Net Profitability Total: <strong>{formatMoney(drilldown2Total)}</strong></p>}
@@ -2482,10 +2330,24 @@ export function Page0() {
                     {drilldown2Loading && <p className="trend-panel-message">Loading…</p>}
                     {!drilldown2Loading && drilldown2Message != null && <p className="trend-panel-message">{drilldown2Message}</p>}
                     {!drilldown2Loading && drilldown2Message == null && drilldown2Mode === 'product' && drilldown2ProductRows.length > 0 && (
-                      <GroupedBarRows rows={drilldown2ProductRows} formatPeriod={(x) => formatMonthMMYYYY(x)} barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')} barLabelFormatter={(y) => formatMoney(y)} totalFormatter={formatMoney} width={320} labelWidth={100} monthTotals={drilldown2ProductMonthTotals} labelColumnTitle="Product" />
+                      <HorizontalBarTable
+                        rows={drilldown2ProductRows.map((r): HBRow => ({
+                          label: r.group, dataKey: r.dataKey,
+                          total: r.total ?? r.values.reduce((s, v) => s + v.y, 0),
+                          periods: r.values.map((v) => ({ label: formatMonthMMYYYY(v.x), value: v.y })),
+                        }))}
+                        formatValue={formatMoney}
+                      />
                     )}
                     {!drilldown2Loading && drilldown2Message == null && drilldown2Mode === 'customer' && drilldown2CustomerRows.length > 0 && (
-                      <GroupedBarRows rows={drilldown2CustomerRows} formatPeriod={(x) => formatMonthMMYYYY(x)} barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')} barLabelFormatter={(y) => formatMoney(y)} totalFormatter={formatMoney} width={320} labelWidth={100} monthTotals={drilldown2CustomerMonthTotals} labelColumnTitle="Customer" />
+                      <HorizontalBarTable
+                        rows={drilldown2CustomerRows.map((r): HBRow => ({
+                          label: r.group, dataKey: r.dataKey,
+                          total: r.total ?? r.values.reduce((s, v) => s + v.y, 0),
+                          periods: r.values.map((v) => ({ label: formatMonthMMYYYY(v.x), value: v.y })),
+                        }))}
+                        formatValue={formatMoney}
+                      />
                     )}
                     {!drilldown2Loading && drilldown2Message == null && drilldown2ProductRows.length === 0 && drilldown2CustomerRows.length === 0 && (
                       <p className="trend-panel-message">No data for this SAC in selected periods.</p>
@@ -2513,54 +2375,26 @@ export function Page0() {
                 </div>
                 <div className="drill-panel-body drilldown-rail-column-body">
                   {serviceCostDrillLoading && <p className="trend-panel-message">Loading…</p>}
-                  {!serviceCostDrillLoading && serviceCostDrillPeriodTotals.length > 0 && (
-                    <p style={{ marginBottom: 8, fontSize: 12, color: '#555' }}>
-                      Total by period: {serviceCostDrillPeriodTotals.map(({ periodNo, totalCost }) => `${formatMonthMMYYYY(periodNo)}: ${formatMoney(totalCost)}`).join(' · ')}
-                    </p>
-                  )}
                   {!serviceCostDrillLoading && serviceCostDrillRows.length > 0 && (() => {
-                    const activityRows = serviceCostDrillRows;
-                    const totalRow: Record<string, string | number> = { activity: 'Total' };
-                    (totalRow as Record<string, unknown>)['isTotal'] = true;
-                    for (const p of selectedPeriods) {
-                      totalRow[`${p}_hours`] = activityRows.reduce((s, r) => s + Number(r[`${p}_hours`] ?? 0), 0);
-                      totalRow[`${p}_cost`] = activityRows.reduce((s, r) => s + Number(r[`${p}_cost`] ?? 0), 0);
-                    }
-                    const rowsWithTotal = [...activityRows, totalRow];
-                    const lastPeriod = selectedPeriods[selectedPeriods.length - 1];
-                    const sortedByLatestCost = [...activityRows].sort((a, b) => Number(b[`${lastPeriod}_cost`] ?? 0) - Number(a[`${lastPeriod}_cost`] ?? 0));
-                    const topRows = sortedByLatestCost.slice(0, SERVICE_COST_CHART_TOP_N);
-                    const serviceCostChartRows: GroupedBarRow[] = topRows.map((row) => ({
-                      group: String(row.activity),
-                      values: selectedPeriods.map((p) => ({ x: p, y: Number(row[`${p}_cost`] ?? 0) })),
-                      total: selectedPeriods.reduce((s, p) => s + Number(row[`${p}_cost`] ?? 0), 0),
+                    const scdRows: SCDRow[] = serviceCostDrillRows.map((r) => ({
+                      activity: String(r.activity),
+                      periods: selectedPeriods.map((p) => ({ cost: Number(r[`${p}_cost`] ?? 0), hours: Number(r[`${p}_hours`] ?? 0) })),
                     }));
-                    const cols: ColumnDef<Record<string, string | number>, unknown>[] = [
-                      { accessorKey: 'activity', header: 'Activity', cell: ({ row, getValue }: { row: { original: Record<string, unknown> }; getValue: () => unknown }) => {
-                        if ((row.original as { isTotal?: boolean }).isTotal === true) return <strong>Total</strong>;
-                        const label = String(getValue() ?? '');
-                        return (
-                          <button type="button" style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0, fontSize: 'inherit', textAlign: 'left', textDecoration: 'underline' }}
-                            onClick={() => setCustomerActivityCenterDrill({ customerId: serviceCostDrill!.customerId, activityCode: label })}>
-                            {label}
-                          </button>
-                        );
-                      }},
-                    ];
-                    for (const p of selectedPeriods) {
-                      cols.push({ accessorKey: `${p}_hours`, header: `${formatMonthMMYYYY(p)} H`, cell: ({ getValue }: { getValue: () => unknown }) => formatNumber1(Number(getValue() ?? 0)) });
-                      cols.push({ accessorKey: `${p}_cost`, header: `${formatMonthMMYYYY(p)} Cost`, cell: ({ getValue }: { getValue: () => unknown }) => formatMoney(Number(getValue() ?? 0)) });
-                    }
+                    const totalScd: SCDRow = {
+                      activity: 'Total', isTotal: true,
+                      periods: selectedPeriods.map((p) => ({
+                        cost: serviceCostDrillRows.reduce((s, r) => s + Number(r[`${p}_cost`] ?? 0), 0),
+                        hours: serviceCostDrillRows.reduce((s, r) => s + Number(r[`${p}_hours`] ?? 0), 0),
+                      })),
+                    };
                     return (
-                      <>
-                        {serviceCostChartRows.length > 0 && (
-                          <div className="drill-chart" style={{ marginBottom: 12 }}>
-                            <GroupedBarRows rows={serviceCostChartRows} formatPeriod={(x) => formatMonthMMYYYY(x)} barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')} barLabelFormatter={(y) => formatMoney(y)} totalFormatter={formatMoney} width={320} labelWidth={120} monthTotals={serviceCostDrillPeriodTotals.map(({ periodNo, totalCost }) => ({ period: periodNo, total: totalCost }))} labelColumnTitle="Activity"
-                              onRowClick={({ label }) => setCustomerActivityCenterDrill({ customerId: serviceCostDrill!.customerId, activityCode: label })} />
-                          </div>
-                        )}
-                        <DataTable data={rowsWithTotal} columns={cols} searchable={false} pageSize={10} sortable={false} />
-                      </>
+                      <ServiceCostDrillTable
+                        rows={[...scdRows, totalScd]}
+                        periodLabels={selectedPeriods.map(formatMonthMMYYYY)}
+                        periodTotals={serviceCostDrillPeriodTotals.map((t) => t.totalCost)}
+                        formatValue={formatMoney}
+                        onRowClick={(code) => setCustomerActivityCenterDrill({ customerId: serviceCostDrill!.customerId, activityCode: code })}
+                      />
                     );
                   })()}
                   {!serviceCostDrillLoading && serviceCostDrillRows.length === 0 && serviceCostDrillPeriodTotals.length === 0 && (
@@ -2582,27 +2416,15 @@ export function Page0() {
                 </div>
                 <div className="drill-panel-body drilldown-rail-column-body">
                   {compareServiceCostLoading && <p className="trend-panel-message">Loading…</p>}
-                  {!compareServiceCostLoading && compareServiceCostRows.length > 0 && (() => {
-                    const itemMonthTotals = compareSelected.map((_item, idx) => ({
-                      period: idx,
-                      total: compareServiceCostRows.reduce((s, r) => s + (r.values[idx]?.y ?? 0), 0),
-                    }));
-                    return (
-                      <div className="drill-chart">
-                        <GroupedBarRows
-                          rows={compareServiceCostRows}
-                          formatPeriod={(x) => compareSelected[Number(x)]?.label ?? String(x)}
-                          barColor={(y) => (y < 0 ? '#C23934' : '#0176D3')}
-                          barLabelFormatter={(y) => formatMoney(y)}
-                          totalFormatter={formatMoney}
-                          labelWidth={160}
-                          monthTotals={itemMonthTotals}
-                          labelColumnTitle="Activity"
-                          onRowClick={({ label }) => setCompareActivityCenterDrill({ activityCode: label })}
-                        />
-                      </div>
-                    );
-                  })()}
+                  {!compareServiceCostLoading && compareServiceCostRows.length > 0 && (
+                    <CompareDrillTable
+                      rows={compareServiceCostRows}
+                      compareLabels={compareSelected.map((i) => i.label)}
+                      rowLabelColumn="Activity"
+                      formatValue={formatMoney}
+                      onRowClick={(label) => setCompareActivityCenterDrill({ activityCode: label })}
+                    />
+                  )}
                   {!compareServiceCostLoading && compareServiceCostRows.length === 0 && (
                     <p className="trend-panel-message">No service cost activity data found for the selected items.</p>
                   )}
@@ -2622,26 +2444,14 @@ export function Page0() {
                 </div>
                 <div className="drill-panel-body drilldown-rail-column-body">
                   {compareActivityCenterLoading && <p className="trend-panel-message">Loading…</p>}
-                  {!compareActivityCenterLoading && compareActivityCenterRows.length > 0 && (() => {
-                    const itemMonthTotals = compareSelected.map((_item, idx) => ({
-                      period: idx,
-                      total: compareActivityCenterRows.reduce((s, r) => s + (r.values[idx]?.y ?? 0), 0),
-                    }));
-                    return (
-                      <div className="drill-chart">
-                        <GroupedBarRows
-                          rows={compareActivityCenterRows}
-                          formatPeriod={(x) => compareSelected[Number(x)]?.label ?? String(x)}
-                          barColor={(y) => (y < 0 ? '#C23934' : '#0176D3')}
-                          barLabelFormatter={(y) => formatMoney(y)}
-                          totalFormatter={formatMoney}
-                          labelWidth={160}
-                          monthTotals={itemMonthTotals}
-                          labelColumnTitle="Activity Center"
-                        />
-                      </div>
-                    );
-                  })()}
+                  {!compareActivityCenterLoading && compareActivityCenterRows.length > 0 && (
+                    <CompareDrillTable
+                      rows={compareActivityCenterRows}
+                      compareLabels={compareSelected.map((i) => i.label)}
+                      rowLabelColumn="Activity Center"
+                      formatValue={formatMoney}
+                    />
+                  )}
                   {!compareActivityCenterLoading && compareActivityCenterRows.length === 0 && (
                     <p className="trend-panel-message">No activity center data found for this activity.</p>
                   )}
@@ -2661,52 +2471,25 @@ export function Page0() {
                 </div>
                 <div className="drill-panel-body drilldown-rail-column-body">
                   {sacServiceCostDrillLoading && <p className="trend-panel-message">Loading…</p>}
-                  {!sacServiceCostDrillLoading && sacServiceCostDrillPeriodTotals.length > 0 && (
-                    <p style={{ marginBottom: 8, fontSize: 13, color: '#555' }}>
-                      Total by period: {sacServiceCostDrillPeriodTotals.map(({ periodNo, totalCost }) => `${formatMonthMMYYYY(periodNo)}: ${formatMoney(totalCost)}`).join(' · ')}
-                    </p>
-                  )}
                   {!sacServiceCostDrillLoading && sacServiceCostDrillRows.length > 0 && (() => {
-                    const actRows = sacServiceCostDrillRows;
-                    const totalRow: Record<string, string | number> = { activity: 'Total' };
-                    (totalRow as Record<string, unknown>)['isTotal'] = true;
-                    for (const p of selectedPeriods) {
-                      totalRow[`${p}_hours`] = actRows.reduce((s, r) => s + Number(r[`${p}_hours`] ?? 0), 0);
-                      totalRow[`${p}_cost`] = actRows.reduce((s, r) => s + Number(r[`${p}_cost`] ?? 0), 0);
-                    }
-                    const rowsWithTotal = [...actRows, totalRow];
-                    const lastPeriod = selectedPeriods[selectedPeriods.length - 1];
-                    const topRows = [...actRows].sort((a, b) => Number(b[`${lastPeriod}_cost`] ?? 0) - Number(a[`${lastPeriod}_cost`] ?? 0)).slice(0, SERVICE_COST_CHART_TOP_N);
-                    const chartRows: GroupedBarRow[] = topRows.map((row) => ({
-                      group: String(row.activity),
-                      values: selectedPeriods.map((p) => ({ x: p, y: Number(row[`${p}_cost`] ?? 0) })),
-                      total: selectedPeriods.reduce((s, p) => s + Number(row[`${p}_cost`] ?? 0), 0),
+                    const scdRows: SCDRow[] = sacServiceCostDrillRows.map((r) => ({
+                      activity: String(r.activity),
+                      periods: selectedPeriods.map((p) => ({ cost: Number(r[`${p}_cost`] ?? 0), hours: Number(r[`${p}_hours`] ?? 0) })),
                     }));
-                    const cols: ColumnDef<Record<string, string | number>, unknown>[] = [
-                      { accessorKey: 'activity', header: 'Activity', cell: ({ row, getValue }: { row: { original: Record<string, unknown> }; getValue: () => unknown }) => (row.original as { isTotal?: boolean }).isTotal === true ? <strong>Total</strong> : String(getValue() ?? '') },
-                    ];
-                    for (const p of selectedPeriods) {
-                      cols.push({ accessorKey: `${p}_hours`, header: `${formatMonthMMYYYY(p)} Hrs`, cell: ({ getValue }: { getValue: () => unknown }) => formatNumber1(Number(getValue() ?? 0)) });
-                      cols.push({ accessorKey: `${p}_cost`, header: `${formatMonthMMYYYY(p)} Cost`, cell: ({ getValue }: { getValue: () => unknown }) => formatMoney(Number(getValue() ?? 0)) });
-                    }
+                    const totalScd: SCDRow = {
+                      activity: 'Total', isTotal: true,
+                      periods: selectedPeriods.map((p) => ({
+                        cost: sacServiceCostDrillRows.reduce((s, r) => s + Number(r[`${p}_cost`] ?? 0), 0),
+                        hours: sacServiceCostDrillRows.reduce((s, r) => s + Number(r[`${p}_hours`] ?? 0), 0),
+                      })),
+                    };
                     return (
-                      <>
-                        {chartRows.length > 0 && (
-                          <div className="drill-chart" style={{ marginBottom: 12 }}>
-                            <GroupedBarRows
-                              rows={chartRows}
-                              formatPeriod={(x) => formatMonthMMYYYY(x)}
-                              barColor={(y) => (y < 0 ? '#C23934' : '#0176D3')}
-                              barLabelFormatter={(y) => formatMoney(y)}
-                              totalFormatter={formatMoney}
-                              labelWidth={140}
-                              monthTotals={sacServiceCostDrillPeriodTotals.map(({ periodNo, totalCost }) => ({ period: periodNo, total: totalCost }))}
-                              labelColumnTitle="Activity"
-                            />
-                          </div>
-                        )}
-                        <DataTable data={rowsWithTotal} columns={cols} searchable={false} pageSize={10} sortable={false} />
-                      </>
+                      <ServiceCostDrillTable
+                        rows={[...scdRows, totalScd]}
+                        periodLabels={selectedPeriods.map(formatMonthMMYYYY)}
+                        periodTotals={sacServiceCostDrillPeriodTotals.map((t) => t.totalCost)}
+                        formatValue={formatMoney}
+                      />
                     );
                   })()}
                   {!sacServiceCostDrillLoading && sacServiceCostDrillRows.length === 0 && (
@@ -2728,66 +2511,26 @@ export function Page0() {
                 </div>
                 <div className="drill-panel-body drilldown-rail-column-body">
                   {productServiceCostDrillLoading && <p className="trend-panel-message">Loading…</p>}
-                  {!productServiceCostDrillLoading && productServiceCostDrillPeriodTotals.length > 0 && (
-                    <p style={{ marginBottom: 8, fontSize: 13, color: '#555' }}>
-                      Total by period: {productServiceCostDrillPeriodTotals.map(({ periodNo, totalCost }) => `${formatMonthMMYYYY(periodNo)}: ${formatMoney(totalCost)}`).join(' · ')}
-                    </p>
-                  )}
                   {!productServiceCostDrillLoading && productServiceCostDrillRows.length > 0 && (() => {
-                    const activityRows = productServiceCostDrillRows;
-                    const totalRow: Record<string, string | number> = { activity: 'Total' };
-                    (totalRow as Record<string, unknown>)['isTotal'] = true;
-                    for (const p of selectedPeriods) {
-                      totalRow[`${p}_hours`] = activityRows.reduce((s, r) => s + Number(r[`${p}_hours`] ?? 0), 0);
-                      totalRow[`${p}_cost`] = activityRows.reduce((s, r) => s + Number(r[`${p}_cost`] ?? 0), 0);
-                    }
-                    const rowsWithTotal = [...activityRows, totalRow];
-                    const lastPeriod = selectedPeriods[selectedPeriods.length - 1];
-                    const sortedByLatestCost = [...activityRows].sort((a, b) => Number(b[`${lastPeriod}_cost`] ?? 0) - Number(a[`${lastPeriod}_cost`] ?? 0));
-                    const topRows = sortedByLatestCost.slice(0, SERVICE_COST_CHART_TOP_N);
-                    const chartRows: GroupedBarRow[] = topRows.map((row) => ({
-                      group: String(row.activity),
-                      values: selectedPeriods.map((p) => ({ x: p, y: Number(row[`${p}_cost`] ?? 0) })),
-                      total: selectedPeriods.reduce((s, p) => s + Number(row[`${p}_cost`] ?? 0), 0),
+                    const scdRows: SCDRow[] = productServiceCostDrillRows.map((r) => ({
+                      activity: String(r.activity),
+                      periods: selectedPeriods.map((p) => ({ cost: Number(r[`${p}_cost`] ?? 0), hours: Number(r[`${p}_hours`] ?? 0) })),
                     }));
-                    const cols: ColumnDef<Record<string, string | number>, unknown>[] = [
-                      { accessorKey: 'activity', header: 'Employee / Activity Center', cell: ({ row, getValue }: { row: { original: Record<string, unknown> }; getValue: () => unknown }) => {
-                        if ((row.original as { isTotal?: boolean }).isTotal === true) return <strong>Total</strong>;
-                        const label = String(getValue() ?? '');
-                        return (
-                          <button
-                            type="button"
-                            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0, fontSize: 'inherit', textAlign: 'left', textDecoration: 'underline' }}
-                            onClick={() => setProductServiceCostCenterDrill({ productName: productServiceCostDrill!.productName, centerKey: label })}
-                          >
-                            {label}
-                          </button>
-                        );
-                      }},
-                    ];
-                    for (const p of selectedPeriods) {
-                      cols.push({ accessorKey: `${p}_hours`, header: `${formatMonthMMYYYY(p)} Hrs`, cell: ({ getValue }: { getValue: () => unknown }) => formatNumber1(Number(getValue() ?? 0)) });
-                      cols.push({ accessorKey: `${p}_cost`, header: `${formatMonthMMYYYY(p)} Cost`, cell: ({ getValue }: { getValue: () => unknown }) => formatMoney(Number(getValue() ?? 0)) });
-                    }
+                    const totalScd: SCDRow = {
+                      activity: 'Total', isTotal: true,
+                      periods: selectedPeriods.map((p) => ({
+                        cost: productServiceCostDrillRows.reduce((s, r) => s + Number(r[`${p}_cost`] ?? 0), 0),
+                        hours: productServiceCostDrillRows.reduce((s, r) => s + Number(r[`${p}_hours`] ?? 0), 0),
+                      })),
+                    };
                     return (
-                      <>
-                        {chartRows.length > 0 && (
-                          <div className="drill-chart" style={{ marginBottom: 12 }}>
-                            <GroupedBarRows
-                              rows={chartRows}
-                              formatPeriod={(x) => formatMonthMMYYYY(x)}
-                              barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
-                              barLabelFormatter={(y) => formatMoney(y)}
-                              totalFormatter={formatMoney}
-                              labelWidth={120}
-                              monthTotals={productServiceCostDrillPeriodTotals.map(({ periodNo, totalCost }) => ({ period: periodNo, total: totalCost }))}
-                              labelColumnTitle="Activity"
-                              onRowClick={({ label }) => setProductServiceCostCenterDrill({ productName: productServiceCostDrill!.productName, centerKey: label })}
-                            />
-                          </div>
-                        )}
-                        <DataTable data={rowsWithTotal} columns={cols} searchable={false} pageSize={10} sortable={false} />
-                      </>
+                      <ServiceCostDrillTable
+                        rows={[...scdRows, totalScd]}
+                        periodLabels={selectedPeriods.map(formatMonthMMYYYY)}
+                        periodTotals={productServiceCostDrillPeriodTotals.map((t) => t.totalCost)}
+                        formatValue={formatMoney}
+                        onRowClick={(code) => setProductServiceCostCenterDrill({ productName: productServiceCostDrill!.productName, centerKey: code })}
+                      />
                     );
                   })()}
                   {!productServiceCostDrillLoading && productServiceCostDrillRows.length === 0 && productServiceCostDrillPeriodTotals.length === 0 && (
@@ -2814,46 +2557,24 @@ export function Page0() {
                     </p>
                   )}
                   {!customerActivityCenterDrillLoading && customerActivityCenterDrillRows.length > 0 && (() => {
-                    const actRows = customerActivityCenterDrillRows;
-                    const totalRow: Record<string, string | number> = { activity: 'Total' };
-                    (totalRow as Record<string, unknown>)['isTotal'] = true;
-                    for (const p of selectedPeriods) {
-                      totalRow[`${p}_hours`] = actRows.reduce((s, r) => s + Number(r[`${p}_hours`] ?? 0), 0);
-                      totalRow[`${p}_cost`] = actRows.reduce((s, r) => s + Number(r[`${p}_cost`] ?? 0), 0);
-                    }
-                    const rowsWithTotal = [...actRows, totalRow];
-                    const lastPeriod = selectedPeriods[selectedPeriods.length - 1];
-                    const topRows = [...actRows].sort((a, b) => Number(b[`${lastPeriod}_cost`] ?? 0) - Number(a[`${lastPeriod}_cost`] ?? 0)).slice(0, SERVICE_COST_CHART_TOP_N);
-                    const chartRows: GroupedBarRow[] = topRows.map((row) => ({
-                      group: String(row.activity),
-                      values: selectedPeriods.map((p) => ({ x: p, y: Number(row[`${p}_cost`] ?? 0) })),
-                      total: selectedPeriods.reduce((s, p) => s + Number(row[`${p}_cost`] ?? 0), 0),
+                    const scdRows: SCDRow[] = customerActivityCenterDrillRows.map((r) => ({
+                      activity: String(r.activity),
+                      periods: selectedPeriods.map((p) => ({ cost: Number(r[`${p}_cost`] ?? 0), hours: Number(r[`${p}_hours`] ?? 0) })),
                     }));
-                    const cols: ColumnDef<Record<string, string | number>, unknown>[] = [
-                      { accessorKey: 'activity', header: 'Activity Center', cell: ({ row, getValue }: { row: { original: Record<string, unknown> }; getValue: () => unknown }) => (row.original as { isTotal?: boolean }).isTotal === true ? <strong>Total</strong> : String(getValue() ?? '') },
-                    ];
-                    for (const p of selectedPeriods) {
-                      cols.push({ accessorKey: `${p}_hours`, header: `${formatMonthMMYYYY(p)} Hrs`, cell: ({ getValue }: { getValue: () => unknown }) => formatNumber1(Number(getValue() ?? 0)) });
-                      cols.push({ accessorKey: `${p}_cost`, header: `${formatMonthMMYYYY(p)} Cost`, cell: ({ getValue }: { getValue: () => unknown }) => formatMoney(Number(getValue() ?? 0)) });
-                    }
+                    const totalScd: SCDRow = {
+                      activity: 'Total', isTotal: true,
+                      periods: selectedPeriods.map((p) => ({
+                        cost: customerActivityCenterDrillRows.reduce((s, r) => s + Number(r[`${p}_cost`] ?? 0), 0),
+                        hours: customerActivityCenterDrillRows.reduce((s, r) => s + Number(r[`${p}_hours`] ?? 0), 0),
+                      })),
+                    };
                     return (
-                      <>
-                        {chartRows.length > 0 && (
-                          <div className="drill-chart" style={{ marginBottom: 12 }}>
-                            <GroupedBarRows
-                              rows={chartRows}
-                              formatPeriod={(x) => formatMonthMMYYYY(x)}
-                              barColor={(y) => (y < 0 ? '#C23934' : '#2E844A')}
-                              barLabelFormatter={(y) => formatMoney(y)}
-                              totalFormatter={formatMoney}
-                              labelWidth={140}
-                              monthTotals={customerActivityCenterDrillPeriodTotals.map(({ periodNo, totalCost }) => ({ period: periodNo, total: totalCost }))}
-                              labelColumnTitle="Activity Center"
-                            />
-                          </div>
-                        )}
-                        <DataTable data={rowsWithTotal} columns={cols} searchable={false} pageSize={10} sortable={false} />
-                      </>
+                      <ServiceCostDrillTable
+                        rows={[...scdRows, totalScd]}
+                        periodLabels={selectedPeriods.map(formatMonthMMYYYY)}
+                        periodTotals={customerActivityCenterDrillPeriodTotals.map((t) => t.totalCost)}
+                        formatValue={formatMoney}
+                      />
                     );
                   })()}
                   {!customerActivityCenterDrillLoading && customerActivityCenterDrillRows.length === 0 && (
@@ -2875,52 +2596,25 @@ export function Page0() {
                 </div>
                 <div className="drill-panel-body drilldown-rail-column-body">
                   {productServiceCostCenterDrillLoading && <p className="trend-panel-message">Loading…</p>}
-                  {!productServiceCostCenterDrillLoading && productServiceCostCenterDrillPeriodTotals.length > 0 && (
-                    <p style={{ marginBottom: 8, fontSize: 13, color: '#555' }}>
-                      Total by period: {productServiceCostCenterDrillPeriodTotals.map(({ periodNo, totalCost }) => `${formatMonthMMYYYY(periodNo)}: ${formatMoney(totalCost)}`).join(' · ')}
-                    </p>
-                  )}
                   {!productServiceCostCenterDrillLoading && productServiceCostCenterDrillRows.length > 0 && (() => {
-                    const actRows = productServiceCostCenterDrillRows;
-                    const totalRow: Record<string, string | number> = { activity: 'Total' };
-                    (totalRow as Record<string, unknown>)['isTotal'] = true;
-                    for (const p of selectedPeriods) {
-                      totalRow[`${p}_hours`] = actRows.reduce((s, r) => s + Number(r[`${p}_hours`] ?? 0), 0);
-                      totalRow[`${p}_cost`] = actRows.reduce((s, r) => s + Number(r[`${p}_cost`] ?? 0), 0);
-                    }
-                    const rowsWithTotal = [...actRows, totalRow];
-                    const lastPeriod = selectedPeriods[selectedPeriods.length - 1];
-                    const topRows = [...actRows].sort((a, b) => Number(b[`${lastPeriod}_cost`] ?? 0) - Number(a[`${lastPeriod}_cost`] ?? 0)).slice(0, SERVICE_COST_CHART_TOP_N);
-                    const chartRows: GroupedBarRow[] = topRows.map((row) => ({
-                      group: String(row.activity),
-                      values: selectedPeriods.map((p) => ({ x: p, y: Number(row[`${p}_cost`] ?? 0) })),
-                      total: selectedPeriods.reduce((s, p) => s + Number(row[`${p}_cost`] ?? 0), 0),
+                    const scdRows: SCDRow[] = productServiceCostCenterDrillRows.map((r) => ({
+                      activity: String(r.activity),
+                      periods: selectedPeriods.map((p) => ({ cost: Number(r[`${p}_cost`] ?? 0), hours: Number(r[`${p}_hours`] ?? 0) })),
                     }));
-                    const cols: ColumnDef<Record<string, string | number>, unknown>[] = [
-                      { accessorKey: 'activity', header: 'Activity', cell: ({ row, getValue }: { row: { original: Record<string, unknown> }; getValue: () => unknown }) => (row.original as { isTotal?: boolean }).isTotal === true ? <strong>Total</strong> : String(getValue() ?? '') },
-                    ];
-                    for (const p of selectedPeriods) {
-                      cols.push({ accessorKey: `${p}_hours`, header: `${formatMonthMMYYYY(p)} Hrs`, cell: ({ getValue }: { getValue: () => unknown }) => formatNumber1(Number(getValue() ?? 0)) });
-                      cols.push({ accessorKey: `${p}_cost`, header: `${formatMonthMMYYYY(p)} Cost`, cell: ({ getValue }: { getValue: () => unknown }) => formatMoney(Number(getValue() ?? 0)) });
-                    }
+                    const totalScd: SCDRow = {
+                      activity: 'Total', isTotal: true,
+                      periods: selectedPeriods.map((p) => ({
+                        cost: productServiceCostCenterDrillRows.reduce((s, r) => s + Number(r[`${p}_cost`] ?? 0), 0),
+                        hours: productServiceCostCenterDrillRows.reduce((s, r) => s + Number(r[`${p}_hours`] ?? 0), 0),
+                      })),
+                    };
                     return (
-                      <>
-                        {chartRows.length > 0 && (
-                          <div className="drill-chart" style={{ marginBottom: 12 }}>
-                            <GroupedBarRows
-                              rows={chartRows}
-                              formatPeriod={(x) => formatMonthMMYYYY(x)}
-                              barColor={() => '#0176D3'}
-                              barLabelFormatter={(y) => formatMoney(y)}
-                              totalFormatter={formatMoney}
-                              labelWidth={140}
-                              monthTotals={productServiceCostCenterDrillPeriodTotals.map(({ periodNo, totalCost }) => ({ period: periodNo, total: totalCost }))}
-                              labelColumnTitle="Activity"
-                            />
-                          </div>
-                        )}
-                        <DataTable data={rowsWithTotal} columns={cols} searchable={false} pageSize={10} sortable={false} />
-                      </>
+                      <ServiceCostDrillTable
+                        rows={[...scdRows, totalScd]}
+                        periodLabels={selectedPeriods.map(formatMonthMMYYYY)}
+                        periodTotals={productServiceCostCenterDrillPeriodTotals.map((t) => t.totalCost)}
+                        formatValue={formatMoney}
+                      />
                     );
                   })()}
                   {!productServiceCostCenterDrillLoading && productServiceCostCenterDrillRows.length === 0 && (

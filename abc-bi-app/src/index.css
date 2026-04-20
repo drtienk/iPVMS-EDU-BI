@@ -1110,6 +1110,392 @@
     transition: width 0.3s ease;
   }
 
+  /* ============ Compare drill table (activity / activity-center comparisons) ============ */
+  .cdt {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .cdt-header {
+    display: flex;
+    align-items: flex-end;
+    background: var(--bg);
+    border-bottom: 2px solid var(--border);
+    padding: 10px 14px;
+    gap: 0;
+  }
+  .cdt-row {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    padding: 9px 14px;
+    gap: 0;
+    min-height: 52px;
+    transition: background 0.1s;
+  }
+  .cdt-row:last-child { border-bottom: none; }
+  .cdt-row-alt { background: #fafbfc; }
+  .cdt-row-clickable { cursor: pointer; }
+  .cdt-row-clickable:hover { background: var(--primary-tint); }
+  .cdt-row-clickable:hover .cdt-drill-badge { opacity: 1; color: var(--primary); }
+
+  .cdt-label-col {
+    width: 180px;
+    flex-shrink: 0;
+    padding-right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .cdt-label-col-header {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+  }
+  .cdt-activity-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.3;
+  }
+  .cdt-drill-badge {
+    font-size: 14px;
+    color: var(--text-secondary);
+    opacity: 0.4;
+    flex-shrink: 0;
+    transition: opacity 0.1s, color 0.1s;
+  }
+
+  .cdt-item-col {
+    flex: 1;
+    min-width: 0;
+    padding: 0 10px;
+  }
+  .cdt-item-header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-bottom: 2px;
+  }
+  .cdt-item-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cdt-item-total {
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .cdt-cell-value {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 5px;
+    letter-spacing: -0.2px;
+  }
+  .cdt-cell-zero {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .cdt-bar-track {
+    height: 5px;
+    background: #eee;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .cdt-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    opacity: 0.8;
+    transition: width 0.3s ease;
+  }
+  .cdt-total-col {
+    width: 90px;
+    flex-shrink: 0;
+    text-align: right;
+    font-size: 14px;
+    font-weight: 700;
+    padding-left: 8px;
+  }
+  .cdt-total-header {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+  }
+
+  /* ============ Metric breakdown table (customer / product / SAC Level 2 drill) ============ */
+  .mb-table {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .mb-header {
+    display: flex;
+    align-items: flex-end;
+    background: var(--bg);
+    border-bottom: 2px solid var(--border);
+    padding: 8px 14px;
+    gap: 0;
+  }
+  .mb-row {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 14px;
+    gap: 0;
+    min-height: 52px;
+    transition: background 0.1s;
+  }
+  .mb-row:last-child { border-bottom: none; }
+  .mb-row-drillable { cursor: pointer; }
+  .mb-row-drillable:hover { background: var(--primary-tint); }
+  .mb-row-drillable:hover .mb-drill-badge { opacity: 1; }
+  .mb-row-summary {
+    background: #fafafa;
+    border-top: 2px solid var(--border);
+  }
+
+  .mb-label-col {
+    width: 140px;
+    flex-shrink: 0;
+    padding-right: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    justify-content: center;
+  }
+  .mb-metric-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-secondary);
+  }
+  .mb-row-summary .mb-metric-label {
+    font-size: 12px;
+    color: var(--text-primary);
+    text-transform: none;
+    font-weight: 700;
+  }
+  .mb-drill-badge {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--primary);
+    background: var(--primary-tint);
+    border-radius: 4px;
+    padding: 1px 5px;
+    opacity: 0.7;
+    transition: opacity 0.1s;
+    align-self: flex-start;
+  }
+
+  .mb-period-col {
+    flex: 1;
+    min-width: 0;
+    padding: 0 8px;
+  }
+  .mb-period-header {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-align: left;
+    padding-bottom: 2px;
+  }
+  .mb-cell-value {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 5px;
+    letter-spacing: -0.3px;
+  }
+  .mb-row-summary .mb-cell-value { font-size: 18px; }
+  .mb-bar-track {
+    height: 5px;
+    background: #eee;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .mb-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    opacity: 0.75;
+    transition: width 0.3s ease;
+  }
+
+  .mb-total-col {
+    width: 90px;
+    flex-shrink: 0;
+    text-align: right;
+    font-size: 14px;
+    font-weight: 700;
+    padding-left: 8px;
+  }
+  .mb-total-header {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-secondary);
+  }
+  .mb-row-summary .mb-total-col { font-size: 16px; }
+
+  .mb-trend-col {
+    width: 60px;
+    flex-shrink: 0;
+    text-align: right;
+    padding-left: 6px;
+  }
+  .mb-trend {
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 4px;
+    padding: 2px 6px;
+    white-space: nowrap;
+  }
+  .mb-trend-up { color: var(--success); background: var(--success-tint); }
+  .mb-trend-dn { color: var(--danger); background: var(--danger-tint); }
+
+  /* ============ Service cost drill table (Level 3: activity cost + hours per period) ============ */
+  .scd-table {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .scd-header {
+    display: flex;
+    align-items: flex-end;
+    background: var(--bg);
+    border-bottom: 2px solid var(--border);
+    padding: 8px 14px;
+  }
+  .scd-col-header {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-secondary);
+  }
+  .scd-period-label { font-size: 12px; font-weight: 700; color: var(--text-primary); }
+  .scd-period-total { font-size: 11px; color: var(--text-secondary); font-weight: 500; }
+
+  .scd-row {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 14px;
+    min-height: 58px;
+    transition: background 0.1s;
+  }
+  .scd-row:last-child { border-bottom: none; }
+  .scd-row-alt { background: #fafbfc; }
+  .scd-row-clickable { cursor: pointer; }
+  .scd-row-clickable:hover { background: var(--primary-tint); }
+  .scd-row-clickable:hover .scd-drill-arrow { opacity: 1; color: var(--primary); }
+  .scd-row-footer {
+    background: var(--bg);
+    border-top: 2px solid var(--border);
+  }
+
+  .scd-activity-col {
+    width: 180px;
+    flex-shrink: 0;
+    padding-right: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .scd-activity-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.3;
+    word-break: break-word;
+  }
+  .scd-drill-arrow {
+    font-size: 14px;
+    color: var(--text-secondary);
+    opacity: 0.35;
+    flex-shrink: 0;
+    transition: opacity 0.1s, color 0.1s;
+  }
+  .scd-footer-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .scd-period-col {
+    flex: 1;
+    min-width: 0;
+    padding: 0 8px;
+  }
+  .scd-cost-value {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+    letter-spacing: -0.2px;
+  }
+  .scd-hours-value {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+  }
+  .scd-bar-track {
+    height: 4px;
+    background: #eee;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .scd-bar-fill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 2px;
+    opacity: 0.7;
+    transition: width 0.3s ease;
+  }
+  .scd-zero {
+    font-size: 13px;
+    color: var(--text-secondary);
+    padding: 4px 0;
+  }
+
+  .scd-summary-col {
+    width: 90px;
+    flex-shrink: 0;
+    text-align: right;
+    padding-left: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .scd-total-val { color: var(--text-primary); }
+  .scd-footer-value { font-size: 15px; }
+
+  .scd-trend-col {
+    width: 58px;
+    flex-shrink: 0;
+    text-align: right;
+    padding-left: 4px;
+  }
+  .scd-trend {
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 4px;
+    padding: 2px 5px;
+    white-space: nowrap;
+  }
+  .scd-trend-up { color: var(--success); background: var(--success-tint); }
+  .scd-trend-dn { color: var(--danger); background: var(--danger-tint); }
+
   /* ============ Grouped bar rows (multi-period drill-down) ============ */
   .grouped-bar-rows {
     margin-top: 8px;
