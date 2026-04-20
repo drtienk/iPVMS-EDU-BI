@@ -9,7 +9,11 @@
       "Bash(python -c ' *)",
       "Bash(pip install *)",
       "Bash(npx tsc *)",
-      "Bash(xargs cat *)"
+      "Bash(xargs cat *)",
+      "Bash(python3)",
+      "Bash(npm ls *)",
+      "Bash(node)",
+      "Bash(python)"
     ]
   }
 }
