@@ -78,9 +78,16 @@ async function computeDashboardAggregate(periodNo: number): Promise<DashboardAgg
     if (rows.length === 0) return null;
 
     const customerIds = new Set(rows.map((r) => String(r.customerId ?? '')).filter(Boolean));
-    const totalProfitability = rows.reduce((s, r) => s + toNumber(r.CustomerProfit, 0), 0);
     const totalRevenueFromPrice = rows.reduce((s, r) => s + toNumber(r.Price, 0), 0);
     const totalServiceCost = rows.reduce((s, r) => s + toNumber(r.ServiceCost, 0), 0);
+
+    let totalProfitability = 0;
+    try {
+      const incomeRows = await getTable<IncomeStatmentRow>(periodNo, 'IncomeStatment');
+      totalProfitability = incomeRows.reduce((s, r) => s + toNumber(r.CustomersProfit, 0), 0);
+    } catch {
+      totalProfitability = rows.reduce((s, r) => s + toNumber(r.CustomerProfit, 0), 0);
+    }
 
     let totalRevenue = totalRevenueFromPrice;
     if (totalRevenue === 0) {
