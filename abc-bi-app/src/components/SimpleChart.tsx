@@ -33,11 +33,18 @@ export function formatMonthMMYYYY(periodNo: number | string): string {
 
 const DEFAULT_WIDTH = 400;
 const DEFAULT_HEIGHT = 220;
-const PAD = { left: 48, right: 16, top: 16, bottom: 36 };
+const PAD = { left: 58, right: 16, top: 20, bottom: 32 };
 
-const DEFAULT_BAR_COLOR_POSITIVE = '#0176D3';
-const DEFAULT_BAR_COLOR_NEGATIVE = '#e57373';
+const DEFAULT_BAR_COLOR_POSITIVE = '#89B8E5';
+const DEFAULT_BAR_COLOR_NEGATIVE = '#F09DA6';
 const MIN_BAR_HEIGHT_FOR_LABEL = 12;
+
+function darkenHex(hex: string, amount = 0.28): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgb(${Math.round(r * (1 - amount))},${Math.round(g * (1 - amount))},${Math.round(b * (1 - amount))})`;
+}
 
 export function SimpleChart({
   data,
@@ -86,8 +93,8 @@ export function SimpleChart({
     const v = yMin + (yMax - yMin) * (i / yTicks);
     const y = scaleY(v);
     tickNodes.push(
-      <line key={`y-${i}`} x1={PAD.left} y1={y} x2={PAD.left - 4} y2={y} stroke="#888" strokeWidth={1} />,
-      <text key={`yt-${i}`} x={PAD.left - 6} y={y} textAnchor="end" dominantBaseline="middle" fontSize={10} fill="#444">
+      <line key={`y-${i}`} x1={PAD.left} y1={y} x2={PAD.left - 4} y2={y} stroke="#666" strokeWidth={1} />,
+      <text key={`yt-${i}`} x={PAD.left - 6} y={y} textAnchor="end" dominantBaseline="middle" fontSize={12} fontWeight={600} fill="#111">
         {formatY(v)}
       </text>
     );
@@ -98,11 +105,11 @@ export function SimpleChart({
   data.forEach((d, i) => {
     const tx = scaleX(d.x);
     tickNodes.push(
-      <line key={`x-${i}`} x1={tx} y1={PAD.top + innerHeight} x2={tx} y2={PAD.top + innerHeight + 4} stroke="#888" strokeWidth={1} />
+      <line key={`x-${i}`} x1={tx} y1={PAD.top + innerHeight} x2={tx} y2={PAD.top + innerHeight + 4} stroke="#666" strokeWidth={1} />
     );
     if (showBottomLabel(i)) {
       tickNodes.push(
-        <text key={`xt-${i}`} x={tx} y={PAD.top + innerHeight + 14} textAnchor="middle" fontSize={10} fill="#444">
+        <text key={`xt-${i}`} x={tx} y={PAD.top + innerHeight + 15} textAnchor="middle" fontSize={11} fontWeight={600} fill="#111">
           {formatBottomLabel(d.x)}
         </text>
       );
@@ -113,20 +120,20 @@ export function SimpleChart({
     <div className="simple-chart" style={{ width, height }}>
       <svg width={width} height={height} className="simple-chart-svg">
         {xLabel && (
-          <text x={PAD.left + innerWidth / 2} y={height - 6} textAnchor="middle" fontSize={11} fill="#666">
+          <text x={PAD.left + innerWidth / 2} y={height - 4} textAnchor="middle" fontSize={12} fill="#111">
             {xLabel}
           </text>
         )}
         {yLabel && (
-          <text x={14} y={PAD.top + innerHeight / 2} textAnchor="middle" fontSize={11} fill="#666" transform={`rotate(-90, 14, ${PAD.top + innerHeight / 2})`}>
+          <text x={14} y={PAD.top + innerHeight / 2} textAnchor="middle" fontSize={12} fill="#111" transform={`rotate(-90, 14, ${PAD.top + innerHeight / 2})`}>
             {yLabel}
           </text>
         )}
-        <line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={PAD.top + innerHeight} stroke="#888" strokeWidth={1} />
-        <line x1={PAD.left} y1={PAD.top + innerHeight} x2={PAD.left + innerWidth} y2={PAD.top + innerHeight} stroke="#888" strokeWidth={1} />
+        <line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={PAD.top + innerHeight} stroke="#666" strokeWidth={1} />
+        <line x1={PAD.left} y1={PAD.top + innerHeight} x2={PAD.left + innerWidth} y2={PAD.top + innerHeight} stroke="#666" strokeWidth={1} />
         {tickNodes}
         {type === 'line' && data.length > 0 && (
-          <polyline points={points} fill="none" stroke="#0176D3" strokeWidth={2} strokeLinejoin="round" />
+          <polyline points={points} fill="none" stroke="#89B8E5" strokeWidth={2} strokeLinejoin="round" />
         )}
         {type === 'bar' &&
           data.map((d, i) => {
@@ -149,6 +156,8 @@ export function SimpleChart({
                   width={barWidth}
                   height={h}
                   fill={barFill}
+                  stroke={darkenHex(barFill)}
+                  strokeWidth={1}
                   style={onBarClick ? { cursor: 'pointer' } : undefined}
                   onClick={() => onBarClick?.(d)}
                 />
@@ -157,8 +166,9 @@ export function SimpleChart({
                     x={barCenterX}
                     y={labelY}
                     textAnchor="middle"
-                    fontSize={10}
-                    fill="#333"
+                    fontSize={12}
+                    fontWeight={700}
+                    fill="#000"
                   >
                     {barLabelText}
                   </text>

@@ -9,10 +9,15 @@ export interface CompareDrillTableProps {
   /** When set, rows are clickable and show a drill badge */
   onRowClick?: (label: string) => void;
   formatValue?: (v: number) => string;
+  /** When true, shows hours below cost value (uses v.hours from GroupedBarRow) */
+  showHours?: boolean;
 }
 
 const defaultFmt = (v: number) =>
   v.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+
+const fmtHours = (h: number) =>
+  h === 0 ? '' : `${h.toLocaleString('en-US', { maximumFractionDigits: 1 })} hrs`;
 
 export function CompareDrillTable({
   rows,
@@ -20,6 +25,7 @@ export function CompareDrillTable({
   rowLabelColumn = 'Item',
   onRowClick,
   formatValue = defaultFmt,
+  showHours = false,
 }: CompareDrillTableProps) {
   if (rows.length === 0) return null;
 
@@ -80,12 +86,15 @@ export function CompareDrillTable({
                       >
                         {formatValue(v.y)}
                       </div>
+                      {showHours && v.hours != null && v.hours > 0 && (
+                        <div className="cdt-hours-value">{fmtHours(v.hours)}</div>
+                      )}
                       <div className="cdt-bar-track">
                         <div
                           className="cdt-bar-fill"
                           style={{
                             width: `${(frac * 100).toFixed(1)}%`,
-                            background: isPos ? 'var(--primary)' : 'var(--danger)',
+                            background: isPos ? 'var(--bar-pos)' : 'var(--bar-neg)',
                           }}
                         />
                       </div>

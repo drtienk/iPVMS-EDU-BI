@@ -30,7 +30,8 @@ export function HorizontalBarTable({
       {rows.map((row, i) => {
         const frac = Math.abs(row.total) / maxAbs;
         const isPos = row.total >= 0;
-        const barColor = isPos ? 'var(--success)' : 'var(--danger)';
+        const barColor = isPos ? 'var(--bar-pos)' : 'var(--bar-neg)';
+        const textColor = isPos ? 'var(--success)' : 'var(--danger)';
         const clickable = Boolean(onRowClick);
 
         return (
@@ -51,7 +52,7 @@ export function HorizontalBarTable({
             <div className="hb-content">
               <div className="hb-header-row">
                 <span className="hb-label">{row.label}</span>
-                <span className="hb-total" style={{ color: barColor }}>{formatValue(row.total)}</span>
+                <span className="hb-total" style={{ color: textColor }}>{formatValue(row.total)}</span>
               </div>
               <div className="hb-bar-track">
                 <div className="hb-bar-fill" style={{ width: `${(frac * 100).toFixed(1)}%`, background: barColor }} />

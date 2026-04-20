@@ -88,7 +88,7 @@ export function MetricBreakdownTable({
                         className="mb-bar-fill"
                         style={{
                           width: `${(frac * 100).toFixed(1)}%`,
-                          background: val >= 0 ? 'var(--primary)' : 'var(--danger)',
+                          background: val >= 0 ? 'var(--bar-neutral)' : 'var(--bar-neg)',
                         }}
                       />
                     </div>

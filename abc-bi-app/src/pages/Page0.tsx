@@ -519,40 +519,18 @@ export function Page0() {
 
 
   const railRef = useRef<HTMLDivElement>(null);
+  const drillRailRef = useRef<HTMLDivElement>(null);
   const level2Ref = useRef<HTMLDivElement>(null);
   const level3Ref = useRef<HTMLDivElement>(null);
   const level4Ref = useRef<HTMLDivElement>(null);
   const activeLevel = (productServiceCostCenterDrill != null || customerActivityCenterDrill != null) ? 4 : (serviceCostDrill != null || productServiceCostDrill != null || sacServiceCostDrill != null || compareActivityCenterDrill != null) ? 3 : (customerDrill != null || drilldown2 != null || productDrill != null || compareServiceCostDrill) ? 2 : 1;
 
+  // Scroll drill panel content to top on every level change
   useEffect(() => {
-    if (customerDrill != null || drilldown2 != null) {
-      requestAnimationFrame(() => {
-        level2Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    }
-  }, [customerDrill, drilldown2]);
-
-  useEffect(() => {
-    if (serviceCostDrill != null) {
-      requestAnimationFrame(() => {
-        level3Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    }
-  }, [serviceCostDrill]);
-
-  useEffect(() => {
-    if (productServiceCostCenterDrill != null) {
-      requestAnimationFrame(() => {
-        level4Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    }
-  }, [productServiceCostCenterDrill]);
-
-  useEffect(() => {
-    if (compareServiceCostDrill) {
-      requestAnimationFrame(() => { level2Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
-    }
-  }, [compareServiceCostDrill]);
+    requestAnimationFrame(() => {
+      drillRailRef.current?.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    });
+  }, [activeLevel]);
 
   useEffect(() => {
     if (isNaN(periodNo)) {
@@ -1111,9 +1089,9 @@ export function Page0() {
     }
     let cancelled = false;
     setCompareServiceCostLoading(true);
-    const getItemCost = async (item: { key: string; label: string }): Promise<Map<string, number>> => {
+    const getItemCost = async (item: { key: string; label: string }): Promise<Map<string, { cost: number; hours: number }>> => {
       const tables = await Promise.all(selectedPeriods.map((p) => getTable<CustomerServiceCostRow>(p, 'CustomerServiceCost')));
-      const codeMap = new Map<string, number>();
+      const codeMap = new Map<string, { cost: number; hours: number }>();
       tables.forEach((rows) => {
         for (const r of rows) {
           const rr = r as unknown as Record<string, unknown>;
@@ -1130,7 +1108,8 @@ export function Page0() {
           }
           if (!matches) continue;
           const code = String(rr['Code'] ?? r.activityCodeKey ?? '').trim() || '(Unknown)';
-          codeMap.set(code, (codeMap.get(code) ?? 0) + toNumber(r.Amount, 0));
+          const prev = codeMap.get(code) ?? { cost: 0, hours: 0 };
+          codeMap.set(code, { cost: prev.cost + toNumber(r.Amount, 0), hours: prev.hours + toNumber(r.DriverValue, 0) });
         }
       });
       return codeMap;
@@ -1142,8 +1121,8 @@ export function Page0() {
         maps.forEach((m) => m.forEach((_, k) => allCodes.add(k)));
         const rows: GroupedBarRow[] = Array.from(allCodes).sort().map((code) => ({
           group: code,
-          values: compareSelected.map((_, idx) => ({ x: idx, y: maps[idx]?.get(code) ?? 0 })),
-          total: maps.reduce((s, m) => s + (m.get(code) ?? 0), 0),
+          values: compareSelected.map((_, idx) => ({ x: idx, y: maps[idx]?.get(code)?.cost ?? 0, hours: maps[idx]?.get(code)?.hours ?? 0 })),
+          total: maps.reduce((s, m) => s + (m.get(code)?.cost ?? 0), 0),
         }));
         rows.sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
         setCompareServiceCostRows(rows);
@@ -1161,9 +1140,9 @@ export function Page0() {
     let cancelled = false;
     setCompareActivityCenterLoading(true);
     const { activityCode } = compareActivityCenterDrill;
-    const getItemCenters = async (item: { key: string; label: string }): Promise<Map<string, number>> => {
+    const getItemCenters = async (item: { key: string; label: string }): Promise<Map<string, { cost: number; hours: number }>> => {
       const tables = await Promise.all(selectedPeriods.map((p) => getTable<CustomerServiceCostRow>(p, 'CustomerServiceCost')));
-      const centerMap = new Map<string, number>();
+      const centerMap = new Map<string, { cost: number; hours: number }>();
       tables.forEach((rows) => {
         for (const r of rows) {
           const rr = r as unknown as Record<string, unknown>;
@@ -1182,7 +1161,8 @@ export function Page0() {
           const code = String(rr['Code'] ?? r.activityCodeKey ?? '').trim() || '(Unknown)';
           if (code !== activityCode) continue;
           const acKey = String(r.activityCenterKey || rr['Activity Center'] || rr[' Activity Center'] || '').trim() || '(Unknown)';
-          centerMap.set(acKey, (centerMap.get(acKey) ?? 0) + toNumber(r.Amount, 0));
+          const prev = centerMap.get(acKey) ?? { cost: 0, hours: 0 };
+          centerMap.set(acKey, { cost: prev.cost + toNumber(r.Amount, 0), hours: prev.hours + toNumber(r.DriverValue, 0) });
         }
       });
       return centerMap;
@@ -1194,8 +1174,8 @@ export function Page0() {
         maps.forEach((m) => m.forEach((_, k) => allCenters.add(k)));
         const rows: GroupedBarRow[] = Array.from(allCenters).sort().map((center) => ({
           group: center,
-          values: compareSelected.map((_, idx) => ({ x: idx, y: maps[idx]?.get(center) ?? 0 })),
-          total: maps.reduce((s, m) => s + (m.get(center) ?? 0), 0),
+          values: compareSelected.map((_, idx) => ({ x: idx, y: maps[idx]?.get(center)?.cost ?? 0, hours: maps[idx]?.get(center)?.hours ?? 0 })),
+          total: maps.reduce((s, m) => s + (m.get(center)?.cost ?? 0), 0),
         }));
         rows.sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
         setCompareActivityCenterRows(rows);
@@ -1518,25 +1498,20 @@ export function Page0() {
               <SimpleChart
                 data={aggregates.map((a) => ({ x: a.periodNo, y: a.totalProfitability }))}
                 type="bar"
-                color="#2E844A"
+                color="#5DC8B4"
                 barLabelFormatter={(v) => formatMoney(v)}
                 xLabelFormatter={(x) => formatMonthMMYYYY(x)}
                 xLabel="Period"
-                yLabel="Value"
                 formatX={(x) => String(x)}
                 formatY={chartFormatMoney}
                 width={340}
                 height={200}
                 onBarClick={(d) => {
-                const p = Number(d.x);
-                setSelectedPeriodNo(p);
-                const periodList = aggregates.map((a) => a.periodNo);
-                setSelectedPeriods(getPeriodRange(periodList, p));
-                 // 新 drilldown 出現後，自動捲到 drilldown 區塊
-  requestAnimationFrame(() => {
-    railRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-              }}
+                  const p = Number(d.x);
+                  setSelectedPeriodNo(p);
+                  const periodList = aggregates.map((a) => a.periodNo);
+                  setSelectedPeriods(getPeriodRange(periodList, p));
+                }}
               />
             </div>
             <div className="dashboard-chart">
@@ -1544,11 +1519,10 @@ export function Page0() {
               <SimpleChart
                 data={aggregates.map((a) => ({ x: a.periodNo, y: a.totalRevenue }))}
                 type="bar"
-                color="#0176D3"
+                color="#89B8E5"
                 barLabelFormatter={(v) => formatMoney(v)}
                 xLabelFormatter={(x) => formatMonthMMYYYY(x)}
                 xLabel="Period"
-                yLabel="Value"
                 formatX={(x) => String(x)}
                 formatY={chartFormatMoney}
                 width={340}
@@ -1560,11 +1534,10 @@ export function Page0() {
               <SimpleChart
                 data={aggregates.map((a) => ({ x: a.periodNo, y: a.totalServiceCost }))}
                 type="bar"
-                color="#C23934"
+                color="#F09DA6"
                 barLabelFormatter={(v) => formatMoney(v)}
                 xLabelFormatter={(x) => formatMonthMMYYYY(x)}
                 xLabel="Period"
-                yLabel="Value"
                 formatX={(x) => String(x)}
                 formatY={chartFormatMoney}
                 width={340}
@@ -1577,7 +1550,6 @@ export function Page0() {
                 data={aggregates.map((a) => ({ x: a.periodNo, y: a.customerCount }))}
                 type="line"
                 xLabel="Period"
-                yLabel="Count"
                 formatX={(x) => String(x)}
                 formatY={chartFormatCount}
                 width={340}
@@ -1671,7 +1643,7 @@ export function Page0() {
               ✕ Close
             </button>
           </div>
-          <div className="drilldown-rail drill-rail">
+          <div ref={drillRailRef} className="drilldown-rail drill-rail">
             {/* Column 1: Level 1 — By Customer / By Product / By SAC / Ranked / Distribution */}
             <div
   className={`drill-panel drilldown-rail-column level-1 ${activeLevel === 1 ? 'active' : 'inactive'} enter`}
@@ -1820,10 +1792,10 @@ export function Page0() {
                       {yTicks.map((v, i) => (
                         <g key={i}>
                           <line x1={-4} y1={sy(v)} x2={0} y2={sy(v)} stroke="#aaa" />
-                          <text x={-8} y={sy(v)} textAnchor="end" dominantBaseline="middle" fontSize={10} fill="#555">{v === 0 ? '$0' : formatMoney(v)}</text>
+                          <text x={-8} y={sy(v)} textAnchor="end" dominantBaseline="middle" fontSize={10} fill="#222">{v === 0 ? '$0' : formatMoney(v)}</text>
                         </g>
                       ))}
-                      <text x={cW / 2} y={cH + 28} textAnchor="middle" fontSize={11} fill="#666">{xLabel} ({n} customers)</text>
+                      <text x={cW / 2} y={cH + 28} textAnchor="middle" fontSize={11} fill="#111">{xLabel} ({n} customers)</text>
                       {/* Invisible hover bands for tooltip */}
                       {pts.map((p, i) => {
                         const bandW = cW / Math.max(n, 1);
@@ -2099,7 +2071,7 @@ export function Page0() {
                                       className="cmt-bar-fill"
                                       style={{
                                         width: `${(frac * 100).toFixed(1)}%`,
-                                        background: key === 'profit' ? (val >= 0 ? 'var(--success)' : 'var(--danger)') : 'var(--primary)',
+                                        background: val >= 0 ? 'var(--bar-pos)' : 'var(--bar-neg)',
                                       }}
                                     />
                                   </div>
@@ -2322,7 +2294,7 @@ export function Page0() {
                   )}
                   {/* Product / Customer breakdown */}
                   <div style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 12 }}>
-                    {drilldown2Total != null && <p style={{ margin: '0 0 8px', fontSize: 12, color: '#555' }}>Net Profitability Total: <strong>{formatMoney(drilldown2Total)}</strong></p>}
+                    {drilldown2Total != null && <p style={{ margin: '0 0 8px', fontSize: 12, color: '#222' }}>Net Profitability Total: <strong>{formatMoney(drilldown2Total)}</strong></p>}
                     <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
                       <button type="button" className={drilldown2Mode === 'product' ? 'btn btn-primary' : 'btn'} onClick={() => setDrilldown2Mode('product')}>By Product</button>
                       <button type="button" className={drilldown2Mode === 'customer' ? 'btn btn-primary' : 'btn'} onClick={() => setDrilldown2Mode('customer')}>By Customer</button>
@@ -2422,6 +2394,7 @@ export function Page0() {
                       compareLabels={compareSelected.map((i) => i.label)}
                       rowLabelColumn="Activity"
                       formatValue={formatMoney}
+                      showHours
                       onRowClick={(label) => setCompareActivityCenterDrill({ activityCode: label })}
                     />
                   )}
@@ -2450,6 +2423,7 @@ export function Page0() {
                       compareLabels={compareSelected.map((i) => i.label)}
                       rowLabelColumn="Activity Center"
                       formatValue={formatMoney}
+                      showHours
                     />
                   )}
                   {!compareActivityCenterLoading && compareActivityCenterRows.length === 0 && (
@@ -2552,7 +2526,7 @@ export function Page0() {
                 <div className="drill-panel-body drilldown-rail-column-body">
                   {customerActivityCenterDrillLoading && <p className="trend-panel-message">Loading…</p>}
                   {!customerActivityCenterDrillLoading && customerActivityCenterDrillPeriodTotals.length > 0 && (
-                    <p style={{ marginBottom: 8, fontSize: 13, color: '#555' }}>
+                    <p style={{ marginBottom: 8, fontSize: 13, color: '#222' }}>
                       Total by period: {customerActivityCenterDrillPeriodTotals.map(({ periodNo, totalCost }) => `${formatMonthMMYYYY(periodNo)}: ${formatMoney(totalCost)}`).join(' · ')}
                     </p>
                   )}

@@ -5,7 +5,7 @@
 
 export interface GroupedBarRow {
   group: string;
-  values: { x: number | string; y: number }[];
+  values: { x: number | string; y: number; hours?: number }[];
   /** Optional sum of values for this group (e.g. total profitability). Shown in right column when set. */
   total?: number;
   /** Optional key for click callback (e.g. customerId when group is display name). Passed to onBarClick as dataKey. */
