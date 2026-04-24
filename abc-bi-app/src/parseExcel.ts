@@ -81,11 +81,10 @@ export interface ParseResult {
 
 export async function parseExcelFile(file: File): Promise<ParseResult> {
   const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type: 'array' });
+  const workbook = XLSX.read(buffer, { type: 'array', sheets: REQUIRED_SHEETS });
   const parsed: Record<string, Record<string, unknown>[]> = {};
 
-  for (const sheetName of workbook.SheetNames) {
-    if (sheetName === 'Sheet2' || sheetName === 'Sheet3') continue;
+  for (const sheetName of REQUIRED_SHEETS) {
     const sheet = workbook.Sheets[sheetName];
     if (!sheet) continue;
     const rows = sheetToRows(sheet);
