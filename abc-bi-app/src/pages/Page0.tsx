@@ -165,7 +165,10 @@ function buildProductServiceCostByEmployee(
       const rr = r as unknown as Record<string, unknown>;
       const center = String(r.activityCenterKey || rr['Activity Center'] || rr[' Activity Center'] || '').trim() || '(Unknown)';
       const hours = toNumber(r.DriverValue, 0);
-      const cost = toNumber(r.Amount, 0);
+      // Product-level service cost = ServiceAmount (the product's allocated share),
+      // which ties back to ProductProfitResult.ServiceCost. Amount is the whole
+      // Activity-Center cost and would over-count per product.
+      const cost = toNumber(r.ServiceAmount, 0);
       const prev = map.get(center) ?? { hours: 0, cost: 0 };
       map.set(center, { hours: prev.hours + hours, cost: prev.cost + cost });
       allCenters.add(center);
@@ -210,7 +213,10 @@ function buildProductServiceCostByActivity(
       if (center !== centerKey) continue;
       const code = String(rr['Code'] ?? r.activityCodeKey ?? '').trim() || '(Unknown)';
       const hours = toNumber(r.DriverValue, 0);
-      const cost = toNumber(r.Amount, 0);
+      // Product-level service cost = ServiceAmount (the product's allocated share),
+      // which ties back to ProductProfitResult.ServiceCost. Amount is the whole
+      // Activity-Center cost and would over-count per product.
+      const cost = toNumber(r.ServiceAmount, 0);
       const prev = map.get(code) ?? { hours: 0, cost: 0 };
       map.set(code, { hours: prev.hours + hours, cost: prev.cost + cost });
       allActivities.add(code);
@@ -245,7 +251,8 @@ function buildCustomerServiceCostByActivityCenter(
   const allCenters = new Set<string>();
   resultsByPeriod.forEach((rows, i) => {
     const periodNo = selectedPeriods[i]!;
-    const map = new Map<string, { hours: number; cost: number }>();
+    // Dedup per (center, code) — see note in buildServiceCostByActivity. Code is fixed here.
+    const uniq = new Map<string, { center: string; hours: number; cost: number }>();
     for (const r of rows) {
       const key = String(r.customerId ?? r.Customer ?? '').trim() || '(Unknown Customer)';
       if (key !== customerId) continue;
@@ -253,8 +260,11 @@ function buildCustomerServiceCostByActivityCenter(
       if (code !== activityCode) continue;
       const rr = r as unknown as Record<string, unknown>;
       const center = String(r.activityCenterKey || rr['Activity Center'] || rr[' Activity Center'] || '').trim() || '(Unknown)';
-      const hours = toNumber(r.DriverValue, 0);
-      const cost = toNumber(r.Amount, 0);
+      const uk = `${center}||${code}`;
+      if (!uniq.has(uk)) uniq.set(uk, { center, hours: toNumber(r.DriverValue, 0), cost: toNumber(r.Amount, 0) });
+    }
+    const map = new Map<string, { hours: number; cost: number }>();
+    for (const { center, hours, cost } of uniq.values()) {
       const prev = map.get(center) ?? { hours: 0, cost: 0 };
       map.set(center, { hours: prev.hours + hours, cost: prev.cost + cost });
       allCenters.add(center);
@@ -288,14 +298,18 @@ function buildSacServiceCostByActivity(
   const allCodes = new Set<string>();
   resultsByPeriod.forEach((rows, i) => {
     const periodNo = selectedPeriods[i]!;
-    const map = new Map<string, { hours: number; cost: number }>();
+    // Dedup per (center, code) — see note in buildServiceCostByActivity.
+    const uniq = new Map<string, { code: string; hours: number; cost: number }>();
     for (const r of rows) {
       const rr = r as unknown as Record<string, unknown>;
       const center = String(r.activityCenterKey || rr['Activity Center'] || rr[' Activity Center'] || '').trim();
       if (center !== sacKey) continue;
       const code = String(rr['Code'] ?? r.activityCodeKey ?? '').trim() || '(Unknown)';
-      const hours = toNumber(r.DriverValue, 0);
-      const cost = toNumber(r.Amount, 0);
+      const uk = `${center}||${code}`;
+      if (!uniq.has(uk)) uniq.set(uk, { code, hours: toNumber(r.DriverValue, 0), cost: toNumber(r.Amount, 0) });
+    }
+    const map = new Map<string, { hours: number; cost: number }>();
+    for (const { code, hours, cost } of uniq.values()) {
       const prev = map.get(code) ?? { hours: 0, cost: 0 };
       map.set(code, { hours: prev.hours + hours, cost: prev.cost + cost });
       allCodes.add(code);
@@ -329,13 +343,21 @@ function buildServiceCostByActivity(
   const allCodes = new Set<string>();
   resultsByPeriod.forEach((rows, i) => {
     const periodNo = selectedPeriods[i]!;
-    const map = new Map<string, { hours: number; cost: number }>();
+    // CustomerServiceCost splits each (Activity Center, Code) into multiple
+    // ServiceProduct rows that repeat the same Activity-Center-level Amount/DriverValue.
+    // Dedup per (center, code) so the total ties back to CustomerProfitResult.ServiceCost.
+    const uniq = new Map<string, { code: string; hours: number; cost: number }>();
     for (const r of rows) {
       const key = String(r.customerId ?? r.Customer ?? '').trim() || '(Unknown Customer)';
       if (key !== customerId) continue;
       const code = String(r.Code ?? '').trim() || '(Unknown)';
-      const hours = toNumber(r.DriverValue, 0);
-      const cost = toNumber(r.Amount, 0);
+      const rr = r as unknown as Record<string, unknown>;
+      const center = String(r.activityCenterKey || rr['Activity Center'] || rr[' Activity Center'] || '').trim();
+      const uk = `${center}||${code}`;
+      if (!uniq.has(uk)) uniq.set(uk, { code, hours: toNumber(r.DriverValue, 0), cost: toNumber(r.Amount, 0) });
+    }
+    const map = new Map<string, { hours: number; cost: number }>();
+    for (const { code, hours, cost } of uniq.values()) {
       const prev = map.get(code) ?? { hours: 0, cost: 0 };
       map.set(code, { hours: prev.hours + hours, cost: prev.cost + cost });
       allCodes.add(code);
@@ -1099,7 +1121,10 @@ export function Page0() {
     const getItemCost = async (item: { key: string; label: string }): Promise<Map<string, { cost: number; hours: number }>> => {
       const tables = await Promise.all(selectedPeriods.map((p) => getTable<CustomerServiceCostRow>(p, 'CustomerServiceCost')));
       const codeMap = new Map<string, { cost: number; hours: number }>();
+      const isProduct = compareType === 'product';
       tables.forEach((rows) => {
+        // Non-product: Amount/DriverValue repeat per ServiceProduct row, so dedup per (center, code).
+        const seen = new Set<string>();
         for (const r of rows) {
           const rr = r as unknown as Record<string, unknown>;
           let matches = false;
@@ -1115,8 +1140,15 @@ export function Page0() {
           }
           if (!matches) continue;
           const code = String(rr['Code'] ?? r.activityCodeKey ?? '').trim() || '(Unknown)';
+          const center = String(r.activityCenterKey || rr['Activity Center'] || rr[' Activity Center'] || '').trim();
+          if (!isProduct) {
+            const uk = `${center}||${code}`;
+            if (seen.has(uk)) continue;
+            seen.add(uk);
+          }
+          const cost = isProduct ? toNumber(r.ServiceAmount, 0) : toNumber(r.Amount, 0);
           const prev = codeMap.get(code) ?? { cost: 0, hours: 0 };
-          codeMap.set(code, { cost: prev.cost + toNumber(r.Amount, 0), hours: prev.hours + toNumber(r.DriverValue, 0) });
+          codeMap.set(code, { cost: prev.cost + cost, hours: prev.hours + toNumber(r.DriverValue, 0) });
         }
       });
       return codeMap;
@@ -1150,7 +1182,10 @@ export function Page0() {
     const getItemCenters = async (item: { key: string; label: string }): Promise<Map<string, { cost: number; hours: number }>> => {
       const tables = await Promise.all(selectedPeriods.map((p) => getTable<CustomerServiceCostRow>(p, 'CustomerServiceCost')));
       const centerMap = new Map<string, { cost: number; hours: number }>();
+      const isProduct = compareType === 'product';
       tables.forEach((rows) => {
+        // Non-product: Amount/DriverValue repeat per ServiceProduct row, so dedup per (center, code).
+        const seen = new Set<string>();
         for (const r of rows) {
           const rr = r as unknown as Record<string, unknown>;
           let matches = false;
@@ -1168,8 +1203,14 @@ export function Page0() {
           const code = String(rr['Code'] ?? r.activityCodeKey ?? '').trim() || '(Unknown)';
           if (code !== activityCode) continue;
           const acKey = String(r.activityCenterKey || rr['Activity Center'] || rr[' Activity Center'] || '').trim() || '(Unknown)';
+          if (!isProduct) {
+            const uk = `${acKey}||${code}`;
+            if (seen.has(uk)) continue;
+            seen.add(uk);
+          }
+          const cost = isProduct ? toNumber(r.ServiceAmount, 0) : toNumber(r.Amount, 0);
           const prev = centerMap.get(acKey) ?? { cost: 0, hours: 0 };
-          centerMap.set(acKey, { cost: prev.cost + toNumber(r.Amount, 0), hours: prev.hours + toNumber(r.DriverValue, 0) });
+          centerMap.set(acKey, { cost: prev.cost + cost, hours: prev.hours + toNumber(r.DriverValue, 0) });
         }
       });
       return centerMap;

@@ -27,8 +27,15 @@ export function Page2() {
     if (isNaN(periodNo) || !customerId) return;
     getTableData<CustomerServiceCostRow>(periodNo, 'CustomerServiceCost').then((rows) => {
       const filtered = rows.filter((r) => r.periodNo === periodNo && r.customerId === customerId);
+      // Amount repeats per ServiceProduct row, so dedup per (Activity Center, Code)
+      // before summing — otherwise each center's cost is over-counted.
+      const seen = new Set<string>();
       const grouped = filtered.reduce((acc, row) => {
         const key = row.activityCenterKey;
+        const code = String((row as unknown as Record<string, unknown>)['Code'] ?? '').trim();
+        const uk = `${key}||${code}`;
+        if (seen.has(uk)) return acc;
+        seen.add(uk);
         if (!acc[key]) acc[key] = { activityCenterKey: key, totalAmount: 0, count: 0 };
         acc[key].totalAmount += toNumber(row.Amount, 0);
         acc[key].count += 1;
