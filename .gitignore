@@ -1,3 +1,6 @@
 abc-bi-app/node_modules/
 abc-bi-app/dist/
 abc-bi-app/node_modules/.cache/
+
+# Large data file removed from tracking (kept locally)
+ReportResult-202005-20210612.xlsx
