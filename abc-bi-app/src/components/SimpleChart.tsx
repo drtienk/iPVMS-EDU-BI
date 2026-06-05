@@ -76,7 +76,7 @@ export function SimpleChart({
   const xMin = Math.min(...xs);
   const xMax = Math.max(...xs);
   const yMin = Math.min(0, ...ys);
-  const yMax = Math.max(...ys);
+  const yMax = Math.max(0, ...ys);
   const yRange = yMax - yMin || 1;
   const xRange = xMax - xMin || 1;
 
