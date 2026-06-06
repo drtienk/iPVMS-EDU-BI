@@ -1657,6 +1657,11 @@
     margin-top: 16px;
     margin-bottom: 16px;
     margin-left: 12px;
+    /* Keep the panel pinned in view; scroll its content internally instead of
+       letting it run off the bottom of the page when drilling deeper. */
+    position: sticky;
+    top: 12px;
+    max-height: calc(100vh - 24px);
   }
 
   @keyframes sidePanelIn {

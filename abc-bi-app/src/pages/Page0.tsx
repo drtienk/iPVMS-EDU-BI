@@ -1809,6 +1809,7 @@ export function Page0() {
                       setServiceCostDrill(null); setCustomerActivityCenterDrill(null);
                       setProductServiceCostDrill(null); setProductServiceCostCenterDrill(null);
                       setSacServiceCostDrill(null); setCompareActivityCenterDrill(null);
+                      setProductCustomerDrill(null); setProductCustomerActivityDrill(null);
                     }}
                   >
                     {compareServiceCostDrill
@@ -1851,6 +1852,26 @@ export function Page0() {
                       ? customerActivityCenterDrill.activityCode
                       : productServiceCostCenterDrill?.centerKey ?? ''}
                   </span>
+                </>
+              )}
+
+              {/* Product → By Customer path (new drill): Level 3 = 依顧客, Level 4 = customer */}
+              {productCustomerDrill != null && (
+                <>
+                  <span className="crumb-sep">›</span>
+                  <button
+                    type="button"
+                    className={`crumb${activeLevel === 3 ? ' active' : ''}`}
+                    onClick={() => setProductCustomerActivityDrill(null)}
+                  >
+                    服務成本：依顧客
+                  </button>
+                </>
+              )}
+              {productCustomerActivityDrill != null && (
+                <>
+                  <span className="crumb-sep">›</span>
+                  <span className="crumb active">{productCustomerActivityDrill.customerLabel}</span>
                 </>
               )}
             </div>
