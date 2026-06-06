@@ -240,6 +240,104 @@ function buildProductServiceCostByActivity(
   return { rows, periodTotals };
 }
 
+/** Product → which CUSTOMERS bear its service cost. Filter CustomerServiceCost by
+ *  ServiceProduct = product, group by Customer, sum ServiceAmount (cost) + DriverValue (hours).
+ *  Totals tie back to the product's service cost as recorded in CustomerServiceCost. */
+function buildProductServiceCostByCustomer(
+  resultsByPeriod: CustomerServiceCostRow[][],
+  selectedPeriods: number[],
+  productName: string
+): { rows: Record<string, string | number>[]; periodTotals: { periodNo: number; totalCost: number }[] } {
+  const byPeriodCust = new Map<number, Map<string, { hours: number; cost: number }>>();
+  const custLabels = new Map<string, string>();
+  resultsByPeriod.forEach((rows, i) => {
+    const periodNo = selectedPeriods[i]!;
+    const map = new Map<string, { hours: number; cost: number }>();
+    for (const r of rows) {
+      const sp = String(r.ServiceProduct ?? '').trim();
+      const spName = sp.includes(':') ? sp.split(':').slice(1).join(':').trim() : sp;
+      if (spName !== productName && sp !== productName) continue;
+      const custId = String(r.customerId ?? r.Customer ?? '').trim() || '(Unknown)';
+      const custLabel = String(r.Customer ?? custId).trim() || custId;
+      const hours = toNumber(r.DriverValue, 0);
+      const cost = toNumber(r.ServiceAmount, 0);
+      const prev = map.get(custId) ?? { hours: 0, cost: 0 };
+      map.set(custId, { hours: prev.hours + hours, cost: prev.cost + cost });
+      custLabels.set(custId, custLabel);
+    }
+    byPeriodCust.set(periodNo, map);
+  });
+  const rows: Record<string, string | number>[] = [];
+  for (const [custId, label] of custLabels) {
+    const row: Record<string, string | number> = { activity: label, custId };
+    for (const p of selectedPeriods) {
+      const m = byPeriodCust.get(p)?.get(custId) ?? { hours: 0, cost: 0 };
+      row[`${p}_hours`] = m.hours;
+      row[`${p}_cost`] = m.cost;
+    }
+    rows.push(row);
+  }
+  rows.sort((a, b) => {
+    const sa = selectedPeriods.reduce((s, p) => s + Number(a[`${p}_cost`] ?? 0), 0);
+    const sb = selectedPeriods.reduce((s, p) => s + Number(b[`${p}_cost`] ?? 0), 0);
+    return sb - sa;
+  });
+  const periodTotals = selectedPeriods.map((periodNo) => ({
+    periodNo,
+    totalCost: rows.reduce((s, row) => s + Number(row[`${periodNo}_cost`] ?? 0), 0),
+  }));
+  return { rows, periodTotals };
+}
+
+/** Product + Customer → which Activity Center / Activity (Code) bears the cost & hours.
+ *  Filter CustomerServiceCost by ServiceProduct = product AND customer, group by
+ *  "<Activity Center> / <Code>", sum ServiceAmount (cost) + DriverValue (hours). */
+function buildProductCustomerServiceCostByActivity(
+  resultsByPeriod: CustomerServiceCostRow[][],
+  selectedPeriods: number[],
+  productName: string,
+  customerId: string
+): { rows: Record<string, string | number>[]; periodTotals: { periodNo: number; totalCost: number }[] } {
+  const byPeriodKey = new Map<number, Map<string, { hours: number; cost: number }>>();
+  const allKeys = new Set<string>();
+  resultsByPeriod.forEach((rows, i) => {
+    const periodNo = selectedPeriods[i]!;
+    const map = new Map<string, { hours: number; cost: number }>();
+    for (const r of rows) {
+      const sp = String(r.ServiceProduct ?? '').trim();
+      const spName = sp.includes(':') ? sp.split(':').slice(1).join(':').trim() : sp;
+      if (spName !== productName && sp !== productName) continue;
+      const cust = String(r.customerId ?? r.Customer ?? '').trim();
+      if (cust !== customerId) continue;
+      const rr = r as unknown as Record<string, unknown>;
+      const center = String(r.activityCenterKey || rr['Activity Center'] || rr[' Activity Center'] || '').trim();
+      const code = String(rr['Code'] ?? r.activityCodeKey ?? '').trim();
+      const key = [center, code].filter(Boolean).join(' / ') || '(Unknown)';
+      const hours = toNumber(r.DriverValue, 0);
+      const cost = toNumber(r.ServiceAmount, 0);
+      const prev = map.get(key) ?? { hours: 0, cost: 0 };
+      map.set(key, { hours: prev.hours + hours, cost: prev.cost + cost });
+      allKeys.add(key);
+    }
+    byPeriodKey.set(periodNo, map);
+  });
+  const rows: Record<string, string | number>[] = [];
+  for (const key of Array.from(allKeys).sort()) {
+    const row: Record<string, string | number> = { activity: key };
+    for (const p of selectedPeriods) {
+      const m = byPeriodKey.get(p)?.get(key) ?? { hours: 0, cost: 0 };
+      row[`${p}_hours`] = m.hours;
+      row[`${p}_cost`] = m.cost;
+    }
+    rows.push(row);
+  }
+  const periodTotals = selectedPeriods.map((periodNo) => ({
+    periodNo,
+    totalCost: rows.reduce((s, row) => s + Number(row[`${periodNo}_cost`] ?? 0), 0),
+  }));
+  return { rows, periodTotals };
+}
+
 /** Build Activity Center breakdown for one Activity Code from CustomerServiceCost (customer level 4 drill). */
 function buildCustomerServiceCostByActivityCenter(
   resultsByPeriod: CustomerServiceCostRow[][],
@@ -519,6 +617,15 @@ export function Page0() {
   const [productServiceCostCenterDrillRows, setProductServiceCostCenterDrillRows] = useState<Record<string, string | number>[]>([]);
   const [productServiceCostCenterDrillPeriodTotals, setProductServiceCostCenterDrillPeriodTotals] = useState<{ periodNo: number; totalCost: number }[]>([]);
   const [productServiceCostCenterDrillLoading, setProductServiceCostCenterDrillLoading] = useState(false);
+  // Product → By Customer service-cost path (new drill)
+  const [productCustomerDrill, setProductCustomerDrill] = useState<{ productName: string } | null>(null);
+  const [productCustomerDrillRows, setProductCustomerDrillRows] = useState<Record<string, string | number>[]>([]);
+  const [productCustomerDrillPeriodTotals, setProductCustomerDrillPeriodTotals] = useState<{ periodNo: number; totalCost: number }[]>([]);
+  const [productCustomerDrillLoading, setProductCustomerDrillLoading] = useState(false);
+  const [productCustomerActivityDrill, setProductCustomerActivityDrill] = useState<{ productName: string; customerId: string; customerLabel: string } | null>(null);
+  const [productCustomerActivityDrillRows, setProductCustomerActivityDrillRows] = useState<Record<string, string | number>[]>([]);
+  const [productCustomerActivityDrillPeriodTotals, setProductCustomerActivityDrillPeriodTotals] = useState<{ periodNo: number; totalCost: number }[]>([]);
+  const [productCustomerActivityDrillLoading, setProductCustomerActivityDrillLoading] = useState(false);
   const [customerDrillLoading, setCustomerDrillLoading] = useState(false);
   const [serviceCostDrill, setServiceCostDrill] = useState<{ customerId: string; customerName: string } | null>(null);
   const [serviceCostDrillRows, setServiceCostDrillRows] = useState<Record<string, string | number>[]>([]);
@@ -552,7 +659,7 @@ export function Page0() {
   const level2Ref = useRef<HTMLDivElement>(null);
   const level3Ref = useRef<HTMLDivElement>(null);
   const level4Ref = useRef<HTMLDivElement>(null);
-  const activeLevel = (productServiceCostCenterDrill != null || customerActivityCenterDrill != null) ? 4 : (serviceCostDrill != null || productServiceCostDrill != null || sacServiceCostDrill != null || compareActivityCenterDrill != null) ? 3 : (customerDrill != null || drilldown2 != null || productDrill != null || compareServiceCostDrill) ? 2 : 1;
+  const activeLevel = (productServiceCostCenterDrill != null || customerActivityCenterDrill != null || productCustomerActivityDrill != null) ? 4 : (serviceCostDrill != null || productServiceCostDrill != null || sacServiceCostDrill != null || compareActivityCenterDrill != null || productCustomerDrill != null) ? 3 : (customerDrill != null || drilldown2 != null || productDrill != null || compareServiceCostDrill) ? 2 : 1;
 
   // Scroll drill panel content to top on every level change
   useEffect(() => {
@@ -1049,6 +1156,65 @@ export function Page0() {
       .finally(() => { if (!cancelled) setProductServiceCostCenterDrillLoading(false); });
     return () => { cancelled = true; };
   }, [productServiceCostCenterDrill, selectedPeriods]);
+
+  // Product → By Customer service cost (level 3)
+  useEffect(() => {
+    if (productCustomerDrill == null || selectedPeriods.length === 0) {
+      setProductCustomerDrillRows([]);
+      setProductCustomerDrillPeriodTotals([]);
+      return;
+    }
+    let cancelled = false;
+    setProductCustomerDrillLoading(true);
+    const pName = productCustomerDrill.productName;
+    Promise.all(selectedPeriods.map((p) => getTable<CustomerServiceCostRow>(p, 'CustomerServiceCost')))
+      .then((results) => {
+        if (cancelled) return;
+        const { rows, periodTotals } = buildProductServiceCostByCustomer(results, selectedPeriods, pName);
+        setProductCustomerDrillRows(rows);
+        setProductCustomerDrillPeriodTotals(periodTotals);
+      })
+      .catch(() => {
+        if (!cancelled) { setProductCustomerDrillRows([]); setProductCustomerDrillPeriodTotals([]); }
+      })
+      .finally(() => { if (!cancelled) setProductCustomerDrillLoading(false); });
+    return () => { cancelled = true; };
+  }, [productCustomerDrill, selectedPeriods]);
+
+  // Product + Customer → by Activity Center / Activity (level 4)
+  useEffect(() => {
+    if (productCustomerActivityDrill == null || selectedPeriods.length === 0) {
+      setProductCustomerActivityDrillRows([]);
+      setProductCustomerActivityDrillPeriodTotals([]);
+      return;
+    }
+    let cancelled = false;
+    setProductCustomerActivityDrillLoading(true);
+    const { productName: pName, customerId: cId } = productCustomerActivityDrill;
+    Promise.all(selectedPeriods.map((p) => getTable<CustomerServiceCostRow>(p, 'CustomerServiceCost')))
+      .then((results) => {
+        if (cancelled) return;
+        const { rows, periodTotals } = buildProductCustomerServiceCostByActivity(results, selectedPeriods, pName, cId);
+        setProductCustomerActivityDrillRows(rows);
+        setProductCustomerActivityDrillPeriodTotals(periodTotals);
+      })
+      .catch(() => {
+        if (!cancelled) { setProductCustomerActivityDrillRows([]); setProductCustomerActivityDrillPeriodTotals([]); }
+      })
+      .finally(() => { if (!cancelled) setProductCustomerActivityDrillLoading(false); });
+    return () => { cancelled = true; };
+  }, [productCustomerActivityDrill, selectedPeriods]);
+
+  // Cleanup: when the product panel closes (or path switches), drop its child drills.
+  useEffect(() => {
+    if (productDrill == null) {
+      setProductCustomerDrill(null);
+      setProductCustomerActivityDrill(null);
+    }
+  }, [productDrill]);
+  useEffect(() => {
+    if (productCustomerDrill == null) setProductCustomerActivityDrill(null);
+  }, [productCustomerDrill]);
 
   useEffect(() => {
     if (sacServiceCostDrill == null || selectedPeriods.length === 0) {
@@ -2306,6 +2472,18 @@ export function Page0() {
                       onDrill={() => setProductServiceCostDrill({ productName: productDrill.productName })}
                     />
                   )}
+                  {!productDrillLoading && productDrillMetrics.length > 0 && (
+                    <div style={{ marginTop: 12 }}>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{ width: '100%' }}
+                        onClick={() => { setProductCustomerActivityDrill(null); setProductCustomerDrill({ productName: productDrill.productName }); }}
+                      >
+                        服務成本：依顧客展開 →
+                      </button>
+                    </div>
+                  )}
                   {!productDrillLoading && productDrillMetrics.length === 0 && (
                     <p className="trend-panel-message">No metrics for this product.</p>
                   )}
@@ -2557,6 +2735,92 @@ export function Page0() {
                   })()}
                   {!productServiceCostDrillLoading && productServiceCostDrillRows.length === 0 && productServiceCostDrillPeriodTotals.length === 0 && (
                     <p className="trend-panel-message">No Service Cost activity data found for this product. Check that CustomerServiceCost has matching ServiceProduct entries.</p>
+                  )}
+                </div>
+              </div>
+            )}
+            {/* Level 3: Product service cost BY CUSTOMER (new drill) */}
+            {productCustomerDrill != null && (
+  <div
+    ref={level3Ref}
+    className={`drill-panel drilldown-rail-column level-3 ${activeLevel === 3 ? 'active' : 'inactive'} enter`}
+  >
+                <div className="drill-panel-header drilldown-rail-column-header">
+                  <span className="drill-panel-title">服務成本 依顧客 — {productCustomerDrill.productName}</span>
+                  <button type="button" className="drilldown-rail-close" onClick={() => { setProductCustomerDrill(null); setProductCustomerActivityDrill(null); }}>Close</button>
+                </div>
+                <div className="drill-panel-body drilldown-rail-column-body">
+                  {productCustomerDrillLoading && <p className="trend-panel-message">Loading…</p>}
+                  {!productCustomerDrillLoading && productCustomerDrillRows.length > 0 && (() => {
+                    const scdRows: SCDRow[] = productCustomerDrillRows.map((r) => ({
+                      activity: String(r.activity),
+                      periods: selectedPeriods.map((p) => ({ cost: Number(r[`${p}_cost`] ?? 0), hours: Number(r[`${p}_hours`] ?? 0) })),
+                    }));
+                    const totalScd: SCDRow = {
+                      activity: 'Total', isTotal: true,
+                      periods: selectedPeriods.map((p) => ({
+                        cost: productCustomerDrillRows.reduce((s, r) => s + Number(r[`${p}_cost`] ?? 0), 0),
+                        hours: productCustomerDrillRows.reduce((s, r) => s + Number(r[`${p}_hours`] ?? 0), 0),
+                      })),
+                    };
+                    return (
+                      <ServiceCostDrillTable
+                        rows={[...scdRows, totalScd]}
+                        periodLabels={selectedPeriods.map(formatMonthMMYYYY)}
+                        periodTotals={productCustomerDrillPeriodTotals.map((t) => t.totalCost)}
+                        formatValue={formatMoney}
+                        onRowClick={(label) => {
+                          const match = productCustomerDrillRows.find((r) => String(r.activity) === label);
+                          setProductCustomerActivityDrill({
+                            productName: productCustomerDrill!.productName,
+                            customerId: String(match?.custId ?? label),
+                            customerLabel: label,
+                          });
+                        }}
+                      />
+                    );
+                  })()}
+                  {!productCustomerDrillLoading && productCustomerDrillRows.length === 0 && (
+                    <p className="trend-panel-message">此產品在 CustomerServiceCost 沒有對應的顧客服務成本明細。</p>
+                  )}
+                </div>
+              </div>
+            )}
+            {/* Level 4: Product + Customer → Activity Center / Activity (new drill) */}
+            {productCustomerActivityDrill != null && (
+  <div
+    ref={level4Ref}
+    className={`drill-panel drilldown-rail-column level-4 ${activeLevel === 4 ? 'active' : 'inactive'} enter`}
+  >
+                <div className="drill-panel-header drilldown-rail-column-header">
+                  <span className="drill-panel-title">作業中心／作業 — {productCustomerActivityDrill.customerLabel}</span>
+                  <button type="button" className="drilldown-rail-close" onClick={() => setProductCustomerActivityDrill(null)}>Close</button>
+                </div>
+                <div className="drill-panel-body drilldown-rail-column-body">
+                  {productCustomerActivityDrillLoading && <p className="trend-panel-message">Loading…</p>}
+                  {!productCustomerActivityDrillLoading && productCustomerActivityDrillRows.length > 0 && (() => {
+                    const scdRows: SCDRow[] = productCustomerActivityDrillRows.map((r) => ({
+                      activity: String(r.activity),
+                      periods: selectedPeriods.map((p) => ({ cost: Number(r[`${p}_cost`] ?? 0), hours: Number(r[`${p}_hours`] ?? 0) })),
+                    }));
+                    const totalScd: SCDRow = {
+                      activity: 'Total', isTotal: true,
+                      periods: selectedPeriods.map((p) => ({
+                        cost: productCustomerActivityDrillRows.reduce((s, r) => s + Number(r[`${p}_cost`] ?? 0), 0),
+                        hours: productCustomerActivityDrillRows.reduce((s, r) => s + Number(r[`${p}_hours`] ?? 0), 0),
+                      })),
+                    };
+                    return (
+                      <ServiceCostDrillTable
+                        rows={[...scdRows, totalScd]}
+                        periodLabels={selectedPeriods.map(formatMonthMMYYYY)}
+                        periodTotals={productCustomerActivityDrillPeriodTotals.map((t) => t.totalCost)}
+                        formatValue={formatMoney}
+                      />
+                    );
+                  })()}
+                  {!productCustomerActivityDrillLoading && productCustomerActivityDrillRows.length === 0 && (
+                    <p className="trend-panel-message">此顧客在此產品下沒有作業明細。</p>
                   )}
                 </div>
               </div>
