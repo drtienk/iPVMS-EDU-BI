@@ -14,8 +14,9 @@ import { ServiceCostDrillTable } from '../components/ServiceCostDrillTable';
 import type { SCDRow } from '../components/ServiceCostDrillTable';
 import { getTableData, listPeriods, getTable } from '../dataApi';
 import { formatMoney, formatPercent } from '../utils/format';
-import { toNumber } from '../normalize';
+import { toNumber, extractId } from '../normalize';
 import type {
+  ActivityDriverRow,
   CustomerProductProfitRow,
   CustomerProfitResultRow,
   CustomerServiceCostRow,
@@ -294,34 +295,52 @@ function buildProductServiceCostByCustomer(
   return { rows, periodTotals };
 }
 
-/** Product + Customer → which Activity Center / Activity (Code) bears the cost & hours.
- *  Filter CustomerServiceCost by ServiceProduct = product AND customer, group by
- *  "<Activity Center> / <Code>", sum ServiceAmount (cost) + DriverValue (hours). */
-function buildProductCustomerServiceCostByActivity(
-  resultsByPeriod: CustomerServiceCostRow[][],
+/** Product + Customer → which Activity bears the cost & hours — sourced from ActivityDriver.
+ *
+ *  WHY NOT CustomerServiceCost: that sheet's Ratio (service-driver split) is only partially
+ *  populated in the source file, so summing its ServiceAmount recovers ~57% of the real cost
+ *  (e.g. C070 shows $40,791 instead of its full $203,953). ActivityDriver, by contrast, holds
+ *  every customer's complete activity cost (ActCost) broken down by Activity Center / Activity.
+ *
+ *  The model's intended logic is: each customer's activity cost is allocated to the products
+ *  they buy by sales-revenue share. So the activity cost this product bears, for this customer,
+ *  is:  ActivityDriver[C, A].ActCost × ( productServiceCost(C) / Σ_A ActivityDriver[C, A].ActCost ).
+ *  productServiceCost(C) is the level-3 figure from CustomerProductProfit (already revenue-split
+ *  and reconciled to ProductProfitResult). Scaling by that factor makes the activity rows sum
+ *  exactly to the customer total shown one level up. For a single-product customer the factor is
+ *  1.0, so 100% of the customer's activity cost lands on that product — matching expectation. */
+function buildProductCustomerActivityFromDriver(
+  resultsByPeriod: ActivityDriverRow[][],
   selectedPeriods: number[],
-  productName: string,
-  customerId: string
+  customerId: string,
+  customerCostByPeriod: Record<number, number>
 ): { rows: Record<string, string | number>[]; periodTotals: { periodNo: number; totalCost: number }[] } {
   const byPeriodKey = new Map<number, Map<string, { hours: number; cost: number }>>();
   const allKeys = new Set<string>();
   resultsByPeriod.forEach((rows, i) => {
     const periodNo = selectedPeriods[i]!;
-    const map = new Map<string, { hours: number; cost: number }>();
+    // 1. Sum this customer's raw activity cost & driver value per "<Center> / <Activity>".
+    const raw = new Map<string, { hours: number; cost: number }>();
+    let custTotal = 0;
     for (const r of rows) {
-      const sp = String(r.ServiceProduct ?? '').trim();
-      const spName = sp.includes(':') ? sp.split(':').slice(1).join(':').trim() : sp;
-      if (spName !== productName && sp !== productName) continue;
-      const cust = String(r.customerId ?? r.Customer ?? '').trim();
+      const cust = String(r.customerId ?? extractId(r.ValueObject) ?? '').trim();
       if (cust !== customerId) continue;
       const rr = r as unknown as Record<string, unknown>;
-      const center = String(r.activityCenterKey || rr['Activity Center'] || rr[' Activity Center'] || '').trim();
-      const code = String(rr['Code'] ?? r.activityCodeKey ?? '').trim();
-      const key = [center, code].filter(Boolean).join(' / ') || '(Unknown)';
-      const hours = toNumber(r.DriverValue, 0);
-      const cost = toNumber(r.ServiceAmount, 0);
-      const prev = map.get(key) ?? { hours: 0, cost: 0 };
-      map.set(key, { hours: prev.hours + hours, cost: prev.cost + cost });
+      const center = String(rr['Activity Center'] ?? rr[' Activity Center'] ?? '').trim();
+      const act = String(rr['Activity - Level 1'] ?? rr[' Activity - Level 1'] ?? '').trim();
+      const key = [center, act].filter(Boolean).join(' / ') || '(Unknown)';
+      const cost = toNumber(r.ActCost, 0);
+      const hours = toNumber(r.ActvivtyDriverValue, 0);
+      const prev = raw.get(key) ?? { hours: 0, cost: 0 };
+      raw.set(key, { hours: prev.hours + hours, cost: prev.cost + cost });
+      custTotal += cost;
+    }
+    // 2. Scale so the activity rows reconcile to this product's share of the customer.
+    const target = customerCostByPeriod[periodNo] ?? 0;
+    const factor = custTotal > 0 ? target / custTotal : 0;
+    const map = new Map<string, { hours: number; cost: number }>();
+    for (const [key, v] of raw) {
+      map.set(key, { hours: v.hours * factor, cost: v.cost * factor });
       allKeys.add(key);
     }
     byPeriodKey.set(periodNo, map);
@@ -627,7 +646,7 @@ export function Page0() {
   const [productCustomerDrillRows, setProductCustomerDrillRows] = useState<Record<string, string | number>[]>([]);
   const [productCustomerDrillPeriodTotals, setProductCustomerDrillPeriodTotals] = useState<{ periodNo: number; totalCost: number }[]>([]);
   const [productCustomerDrillLoading, setProductCustomerDrillLoading] = useState(false);
-  const [productCustomerActivityDrill, setProductCustomerActivityDrill] = useState<{ productName: string; customerId: string; customerLabel: string; customerCost: number } | null>(null);
+  const [productCustomerActivityDrill, setProductCustomerActivityDrill] = useState<{ productName: string; customerId: string; customerLabel: string; customerCost: number; customerCostByPeriod: Record<number, number> } | null>(null);
   const [productCustomerActivityDrillRows, setProductCustomerActivityDrillRows] = useState<Record<string, string | number>[]>([]);
   const [productCustomerActivityDrillPeriodTotals, setProductCustomerActivityDrillPeriodTotals] = useState<{ periodNo: number; totalCost: number }[]>([]);
   const [productCustomerActivityDrillLoading, setProductCustomerActivityDrillLoading] = useState(false);
@@ -1195,11 +1214,11 @@ export function Page0() {
     }
     let cancelled = false;
     setProductCustomerActivityDrillLoading(true);
-    const { productName: pName, customerId: cId } = productCustomerActivityDrill;
-    Promise.all(selectedPeriods.map((p) => getTable<CustomerServiceCostRow>(p, 'CustomerServiceCost')))
+    const { customerId: cId, customerCostByPeriod } = productCustomerActivityDrill;
+    Promise.all(selectedPeriods.map((p) => getTable<ActivityDriverRow>(p, 'ActivityDriver')))
       .then((results) => {
         if (cancelled) return;
-        const { rows, periodTotals } = buildProductCustomerServiceCostByActivity(results, selectedPeriods, pName, cId);
+        const { rows, periodTotals } = buildProductCustomerActivityFromDriver(results, selectedPeriods, cId, customerCostByPeriod);
         setProductCustomerActivityDrillRows(rows);
         setProductCustomerActivityDrillPeriodTotals(periodTotals);
       })
@@ -2798,11 +2817,14 @@ export function Page0() {
                         onRowClick={(label) => {
                           const match = productCustomerDrillRows.find((r) => String(r.activity) === label);
                           const custCost = match ? selectedPeriods.reduce((s, p) => s + Number(match[`${p}_cost`] ?? 0), 0) : 0;
+                          const custCostByPeriod: Record<number, number> = {};
+                          for (const p of selectedPeriods) custCostByPeriod[p] = match ? Number(match[`${p}_cost`] ?? 0) : 0;
                           setProductCustomerActivityDrill({
                             productName: productCustomerDrill!.productName,
                             customerId: String(match?.custId ?? label),
                             customerLabel: label,
                             customerCost: custCost,
+                            customerCostByPeriod: custCostByPeriod,
                           });
                         }}
                       />
@@ -2832,7 +2854,7 @@ export function Page0() {
                     if (target > 0 && Math.abs(detailTotal - target) > 1) {
                       return (
                         <p style={{ margin: '0 0 8px', fontSize: 12, color: '#9a6700', background: '#fff8e1', border: '1px solid #ffe08a', borderRadius: 4, padding: '6px 8px' }}>
-                          ⚠ 此顧客服務成本 {formatMoney(target)}，但 CustomerServiceCost 作業明細僅涵蓋 {formatMoney(detailTotal)}（差 {formatMoney(target - detailTotal)}）。來源檔的作業分攤未填滿。
+                          ⚠ 此顧客服務成本 {formatMoney(target)}，但 ActivityDriver 找不到對應的作業成本可分攤（目前涵蓋 {formatMoney(detailTotal)}，差 {formatMoney(target - detailTotal)}）。請確認 ActivityDriver 是否有此顧客的作業資料。
                         </p>
                       );
                     }
