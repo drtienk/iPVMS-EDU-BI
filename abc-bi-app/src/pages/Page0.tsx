@@ -1269,6 +1269,12 @@ export function Page0() {
     productDrill, productCustomerDrill, productCustomerActivityDrill,
     customerDrill, drilldown2, serviceCostDrill, customerActivityCenterDrill,
     productServiceCostDrill, productServiceCostCenterDrill, sacServiceCostDrill,
+    // Re-scroll after async data finishes loading: multi-period fetches grow the
+    // panel height after it first mounts, so the initial scroll can land short.
+    serviceCostDrillLoading, customerActivityCenterDrillLoading,
+    productCustomerDrillLoading, productCustomerActivityDrillLoading,
+    productServiceCostDrillLoading, productServiceCostCenterDrillLoading,
+    sacServiceCostDrillLoading,
   ]);
 
   // Cleanup: when the product panel closes (or path switches), drop its child drills.

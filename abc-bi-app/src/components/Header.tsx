@@ -60,6 +60,29 @@ export function Header() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (periods.length === 0) return;
+    const confirmed = window.confirm(
+      `Delete ALL ${periods.length} period(s)? This removes every uploaded period and all stored tables. This cannot be undone.`
+    );
+    if (!confirmed) return;
+    try {
+      for (const p of [...periods]) {
+        await deletePeriod(p.periodNo);
+      }
+      setPeriods([]);
+      setSheetStatus({});
+      setPeriodNo(null);
+      triggerRefresh();
+      navigate('/page0');
+      setDeleteMessage('All periods deleted');
+      setTimeout(() => setDeleteMessage(null), 2000);
+    } catch {
+      setDeleteMessage('Failed to delete all periods');
+      setTimeout(() => setDeleteMessage(null), 2000);
+    }
+  };
+
   const handleUploaded = (latestPeriodNo?: number) => {
     triggerRefresh();
     if (periodNo != null) loadStatus(periodNo);
@@ -113,6 +136,16 @@ export function Header() {
             aria-label="Delete uploaded period"
           >
             Delete
+          </button>
+          <button
+            type="button"
+            className="header-delete-period"
+            onClick={handleDeleteAll}
+            disabled={periods.length === 0}
+            title="Delete all uploaded periods"
+            aria-label="Delete all uploaded periods"
+          >
+            Delete All
           </button>
         </span>
 
