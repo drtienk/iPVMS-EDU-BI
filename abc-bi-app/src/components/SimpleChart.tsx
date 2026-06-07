@@ -152,8 +152,10 @@ export function SimpleChart({
               barLabelFormatter != null ? barLabelFormatter(d.y) : d.y.toLocaleString('en-US', { maximumFractionDigits: 0 });
             const showBarLabel = h >= MIN_BAR_HEIGHT_FOR_LABEL;
             const barCenterX = x + barWidth / 2;
-            // Negative bars draw downward from zero; place the label below the bar so it never overlaps the bar/axis.
-            const labelY = d.y < 0 ? y + h + 13 : y - 4;
+            // Always place the value label just above the bar (for negatives that's
+            // above the zero line, where the column is empty) so it never overlaps
+            // the bar, the zero line, or the x-axis period labels below.
+            const labelY = (d.y >= 0 ? yTop : yBase) - 5;
             const labelColor = d.y < 0 ? (negativeColor ?? '#C23934') : '#000';
             return (
               <g key={i}>
