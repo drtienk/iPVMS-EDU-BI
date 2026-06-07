@@ -39,7 +39,6 @@ const PAD = { left: 58, right: 16, top: 20, bottom: 32 };
 
 const DEFAULT_BAR_COLOR_POSITIVE = '#89B8E5';
 const DEFAULT_BAR_COLOR_NEGATIVE = '#F09DA6';
-const MIN_BAR_HEIGHT_FOR_LABEL = 12;
 
 function darkenHex(hex: string, amount = 0.28): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -150,7 +149,8 @@ export function SimpleChart({
               : (color ?? DEFAULT_BAR_COLOR_POSITIVE);
             const barLabelText =
               barLabelFormatter != null ? barLabelFormatter(d.y) : d.y.toLocaleString('en-US', { maximumFractionDigits: 0 });
-            const showBarLabel = h >= MIN_BAR_HEIGHT_FOR_LABEL;
+            // Labels sit above the bar, so even tiny/zero-height bars can show their value.
+            const showBarLabel = true;
             const barCenterX = x + barWidth / 2;
             // Always place the value label just above the bar (for negatives that's
             // above the zero line, where the column is empty) so it never overlaps
