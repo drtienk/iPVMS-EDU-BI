@@ -1867,6 +1867,7 @@ export function Page0() {
                 data={aggregates.map((a) => ({ x: a.periodNo, y: a.totalProfitability }))}
                 type="bar"
                 color="#5DC8B4"
+                negativeColor="#C23934"
                 barLabelFormatter={(v) => formatMoney(v)}
                 xLabelFormatter={(x) => formatMonthMMYYYY(x)}
                 xLabel="Period"

@@ -17,6 +17,8 @@ export interface SimpleChartProps {
   formatY?: (y: number) => string;
   /** Bar fill color (bar chart only). When unset, keeps default positive/negative colors. */
   color?: string;
+  /** Fill color for negative (loss) bars + their labels (bar chart only). When set, overrides `color` for bars below zero. */
+  negativeColor?: string;
   /** Format value shown above each bar (bar chart only). Default: toLocaleString('en-US', { maximumFractionDigits: 0 }). */
   barLabelFormatter?: (value: number) => string;
   /** Format x-axis labels (e.g. periodNo → MMYYYY). When set, used for bottom labels instead of formatX. */
@@ -56,6 +58,7 @@ export function SimpleChart({
   formatX = (x) => String(x),
   formatY = (y) => String(y),
   color,
+  negativeColor,
   barLabelFormatter,
   xLabelFormatter,
   onBarClick,
@@ -142,12 +145,16 @@ export function SimpleChart({
             const yBase = scaleY(0);
             const h = Math.abs(yBase - yTop);
             const y = d.y >= 0 ? yTop : yBase;
-            const barFill = color ?? (d.y >= 0 ? DEFAULT_BAR_COLOR_POSITIVE : DEFAULT_BAR_COLOR_NEGATIVE);
+            const barFill = d.y < 0
+              ? (negativeColor ?? color ?? DEFAULT_BAR_COLOR_NEGATIVE)
+              : (color ?? DEFAULT_BAR_COLOR_POSITIVE);
             const barLabelText =
               barLabelFormatter != null ? barLabelFormatter(d.y) : d.y.toLocaleString('en-US', { maximumFractionDigits: 0 });
             const showBarLabel = h >= MIN_BAR_HEIGHT_FOR_LABEL;
             const barCenterX = x + barWidth / 2;
-            const labelY = y - 4;
+            // Negative bars draw downward from zero; place the label below the bar so it never overlaps the bar/axis.
+            const labelY = d.y < 0 ? y + h + 13 : y - 4;
+            const labelColor = d.y < 0 ? (negativeColor ?? '#C23934') : '#000';
             return (
               <g key={i}>
                 <rect
@@ -168,7 +175,7 @@ export function SimpleChart({
                     textAnchor="middle"
                     fontSize={12}
                     fontWeight={700}
-                    fill="#000"
+                    fill={labelColor}
                   >
                     {barLabelText}
                   </text>
@@ -176,6 +183,18 @@ export function SimpleChart({
               </g>
             );
           })}
+        {/* Zero baseline — drawn on top so it reads clearly across bars that cross zero. */}
+        {yMin < 0 && (
+          <line
+            x1={PAD.left}
+            y1={scaleY(0)}
+            x2={PAD.left + innerWidth}
+            y2={scaleY(0)}
+            stroke="#333"
+            strokeWidth={1.5}
+            strokeDasharray="5 3"
+          />
+        )}
       </svg>
     </div>
   );
