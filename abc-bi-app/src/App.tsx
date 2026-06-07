@@ -7,6 +7,7 @@ import { Page2 } from './pages/Page2';
 import { Page3 } from './pages/Page3';
 import { Page4 } from './pages/Page4';
 import { Page5 } from './pages/Page5';
+import { LeadingIndicator } from './pages/LeadingIndicator';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
           <Route path="/page3" element={<Page3 />} />
           <Route path="/page4" element={<Page4 />} />
           <Route path="/page5" element={<Page5 />} />
+          <Route path="/leading" element={<LeadingIndicator />} />
           <Route path="*" element={<Navigate to="/page0" replace />} />
         </Routes>
       </main>

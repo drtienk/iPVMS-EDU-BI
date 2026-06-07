@@ -112,6 +112,10 @@ export function Header() {
           <span className="header-logo-mark">iB</span>
           <h1>iPVMS EDU BI</h1>
         </Link>
+        <nav className="header-nav">
+          <Link to={periodNo != null ? `/page0?periodNo=${periodNo}` : '/page0'} className="header-nav-link">Dashboard</Link>
+          <Link to="/leading" className="header-nav-link">Leading Indicator</Link>
+        </nav>
       </div>
 
       <div className="header-actions">
