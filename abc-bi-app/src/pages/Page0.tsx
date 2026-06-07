@@ -91,6 +91,8 @@ export interface DashboardAggregate {
   totalServiceCost: number;
   netProfit: number;
   customerCount: number;
+  /** Distinct sales activity-centre names (e.g. 業一部, 業二部) that the revenue came through. */
+  salesActivityCenters: string[];
 }
 
 /** Whole-company aggregates for the Overview dashboard + Income Statement.
@@ -118,6 +120,23 @@ async function computeDashboardAggregate(periodNo: number): Promise<DashboardAgg
       // keep 0
     }
 
+    // Sales activity-centre names that revenue flows through (e.g. 業一部, 業二部),
+    // taken from CustomerProductProfit.SalesActivityCenter ("CODE:Name" → keep Name).
+    const salesActivityCenters: string[] = [];
+    try {
+      const cpp = await getTable<CustomerProductProfitRow>(periodNo, 'CustomerProductProfit');
+      const names = new Set<string>();
+      for (const r of cpp) {
+        const sac = String(r.SalesActivityCenter ?? '').trim();
+        if (!sac) continue;
+        const name = sac.includes(':') ? sac.split(':').slice(1).join(':').trim() : sac;
+        if (name) names.add(name);
+      }
+      salesActivityCenters.push(...Array.from(names).sort());
+    } catch {
+      // keep empty
+    }
+
     return {
       periodNo,
       totalProfitability: netProfit,
@@ -126,6 +145,7 @@ async function computeDashboardAggregate(periodNo: number): Promise<DashboardAgg
       totalServiceCost,
       netProfit,
       customerCount,
+      salesActivityCenters,
     };
   } catch {
     return null;
@@ -1787,17 +1807,22 @@ export function Page0() {
         {!dashboardLoading && !dashboardError && aggregates.length >= 1 && (() => {
           const showTotal = aggregates.length > 1;
           const sum = (pick: (a: DashboardAggregate) => number) => aggregates.reduce((s, a) => s + pick(a), 0);
+          // Sales activity centres revenue flows through (e.g. 業一部, 業二部) → name the revenue line & title.
+          const sacNames = Array.from(new Set(aggregates.flatMap((a) => a.salesActivityCenters ?? []))).sort();
+          const sacLabel = sacNames.join('與');
+          const revenueLabel = sacLabel ? `${sacLabel}銷貨 Revenue` : '營收 Revenue';
+          const isTitle = sacLabel ? `${sacLabel} 損益表 Income Statement` : '損益表 Income Statement';
           const lines: { label: string; pick: (a: DashboardAggregate) => number; kind: 'subtotal' | 'total' | 'normal'; neg?: boolean }[] = [
-            { label: '營收 Revenue', pick: (a) => a.totalRevenue, kind: 'normal' },
+            { label: revenueLabel, pick: (a) => a.totalRevenue, kind: 'normal' },
             { label: '− 銷貨成本 COGS', pick: (a) => a.cogs, kind: 'normal', neg: true },
             { label: '= 毛利 Gross Profit', pick: (a) => a.totalRevenue - a.cogs, kind: 'subtotal' },
-            { label: '− 服務成本 Service Cost', pick: (a) => a.totalServiceCost, kind: 'normal', neg: true },
+            { label: '− 營運費用 Operating Expense', pick: (a) => a.totalServiceCost, kind: 'normal', neg: true },
             { label: '= 淨利 Net Profit', pick: (a) => a.netProfit, kind: 'total' },
           ];
           const fmt = (v: number, neg?: boolean) => neg ? `(${formatMoney(Math.abs(v))})` : formatMoney(v);
           return (
             <div className="dashboard-chart" style={{ marginBottom: 16, overflowX: 'auto' }}>
-              <h3 className="dashboard-chart-title">損益表 Income Statement</h3>
+              <h3 className="dashboard-chart-title">{isTitle}</h3>
               <table className="is-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr>
