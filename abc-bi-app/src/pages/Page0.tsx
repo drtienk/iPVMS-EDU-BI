@@ -20,7 +20,6 @@ import type {
   CustomerProductProfitRow,
   CustomerProfitResultRow,
   CustomerServiceCostRow,
-  IncomeStatmentRow,
   ProductProfitResultRow,
 } from '../types';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -69,43 +68,45 @@ export interface DashboardAggregate {
   periodNo: number;
   totalProfitability: number;
   totalRevenue: number;
+  cogs: number;
   totalServiceCost: number;
+  netProfit: number;
   customerCount: number;
 }
 
+/** Whole-company aggregates for the Overview dashboard + Income Statement.
+ *  Sourced from ProductProfitResult so every figure ties to the By Product view:
+ *    Revenue = Σ Price, COGS = Σ ManufactureCost, Service Cost = Σ ServiceCost,
+ *    Net Profit = Σ ProductProfit = Revenue − COGS − Service Cost.
+ *  This is the整體 income statement — Service Cost is the full activity-centre cost
+ *  (including the unallocated "(Unknown)" product row), with no allocated/unallocated split. */
 async function computeDashboardAggregate(periodNo: number): Promise<DashboardAggregate | null> {
   try {
-    const rows = await getTable<CustomerProfitResultRow>(periodNo, 'CustomerProfitResult');
+    const rows = await getTable<ProductProfitResultRow>(periodNo, 'ProductProfitResult');
     if (rows.length === 0) return null;
 
-    const customerIds = new Set(rows.map((r) => String(r.customerId ?? '')).filter(Boolean));
-    const totalRevenueFromPrice = rows.reduce((s, r) => s + toNumber(r.Price, 0), 0);
+    const totalRevenue = rows.reduce((s, r) => s + toNumber(r.Price, 0), 0);
+    const cogs = rows.reduce((s, r) => s + toNumber(r.ManufactureCost, 0), 0);
     const totalServiceCost = rows.reduce((s, r) => s + toNumber(r.ServiceCost, 0), 0);
+    const netProfit = rows.reduce((s, r) => s + toNumber(r.ProductProfit, 0), 0);
 
-    let totalProfitability = 0;
+    // Customer count comes from CustomerProfitResult; fall back to 0 if absent.
+    let customerCount = 0;
     try {
-      const incomeRows = await getTable<IncomeStatmentRow>(periodNo, 'IncomeStatment');
-      totalProfitability = incomeRows.reduce((s, r) => s + toNumber(r.CustomersProfit, 0), 0);
+      const cpr = await getTable<CustomerProfitResultRow>(periodNo, 'CustomerProfitResult');
+      customerCount = new Set(cpr.map((r) => String(r.customerId ?? '')).filter(Boolean)).size;
     } catch {
-      totalProfitability = rows.reduce((s, r) => s + toNumber(r.CustomerProfit, 0), 0);
-    }
-
-    let totalRevenue = totalRevenueFromPrice;
-    if (totalRevenue === 0) {
-      try {
-        const incomeRows = await getTable<IncomeStatmentRow>(periodNo, 'IncomeStatment');
-        totalRevenue = incomeRows.reduce((s, r) => s + toNumber(r.Amount, 0), 0);
-      } catch {
-        // keep 0
-      }
+      // keep 0
     }
 
     return {
       periodNo,
-      totalProfitability,
+      totalProfitability: netProfit,
       totalRevenue,
+      cogs,
       totalServiceCost,
-      customerCount: customerIds.size,
+      netProfit,
+      customerCount,
     };
   } catch {
     return null;
@@ -1725,6 +1726,56 @@ export function Page0() {
                   </div>
                 );
               })}
+            </div>
+          );
+        })()}
+
+        {!dashboardLoading && !dashboardError && aggregates.length >= 1 && (() => {
+          const showTotal = aggregates.length > 1;
+          const sum = (pick: (a: DashboardAggregate) => number) => aggregates.reduce((s, a) => s + pick(a), 0);
+          const lines: { label: string; pick: (a: DashboardAggregate) => number; kind: 'subtotal' | 'total' | 'normal'; neg?: boolean }[] = [
+            { label: '營收 Revenue', pick: (a) => a.totalRevenue, kind: 'normal' },
+            { label: '− 銷貨成本 COGS', pick: (a) => a.cogs, kind: 'normal', neg: true },
+            { label: '= 毛利 Gross Profit', pick: (a) => a.totalRevenue - a.cogs, kind: 'subtotal' },
+            { label: '− 服務成本 Service Cost', pick: (a) => a.totalServiceCost, kind: 'normal', neg: true },
+            { label: '= 淨利 Net Profit', pick: (a) => a.netProfit, kind: 'total' },
+          ];
+          const fmt = (v: number, neg?: boolean) => neg ? `(${formatMoney(Math.abs(v))})` : formatMoney(v);
+          return (
+            <div className="dashboard-chart" style={{ marginBottom: 16, overflowX: 'auto' }}>
+              <h3 className="dashboard-chart-title">損益表 Income Statement</h3>
+              <table className="is-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: '6px 10px', borderBottom: '2px solid #d8dde6' }}></th>
+                    {aggregates.map((a) => (
+                      <th key={a.periodNo} style={{ textAlign: 'right', padding: '6px 10px', borderBottom: '2px solid #d8dde6', whiteSpace: 'nowrap' }}>{formatMonthMMYYYY(a.periodNo)}</th>
+                    ))}
+                    {showTotal && <th style={{ textAlign: 'right', padding: '6px 10px', borderBottom: '2px solid #d8dde6', whiteSpace: 'nowrap' }}>合計 Total</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.map((ln) => {
+                    const isBold = ln.kind === 'total';
+                    const rowStyle = {
+                      fontWeight: (isBold || ln.kind === 'subtotal' ? 700 : 400) as number,
+                      borderTop: ln.kind === 'subtotal' || ln.kind === 'total' ? '1px solid #d8dde6' : undefined,
+                      background: ln.kind === 'total' ? '#f3f6fb' : undefined,
+                    };
+                    const cell = (key: string, v: number) => {
+                      const color = ln.kind === 'total' && v < 0 ? '#C23934' : (ln.kind === 'total' && v >= 0 ? '#2E844A' : undefined);
+                      return <td key={key} style={{ textAlign: 'right', padding: '6px 10px', whiteSpace: 'nowrap', color }}>{fmt(v, ln.neg)}</td>;
+                    };
+                    return (
+                      <tr key={ln.label} style={rowStyle}>
+                        <td style={{ textAlign: 'left', padding: '6px 10px' }}>{ln.label}</td>
+                        {aggregates.map((a) => cell(String(a.periodNo), ln.pick(a)))}
+                        {showTotal && cell('total', sum(ln.pick))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           );
         })()}
