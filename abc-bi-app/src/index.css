@@ -625,6 +625,8 @@
     min-height: 200px;
     border-right: none;
     font-size: 15px;           /* 🔧 新增：drill 面板基底字體 */
+    /* When a drill auto-scrolls into view, keep its header clear of the fixed top bar. */
+    scroll-margin-top: 96px;
   }
   
   .drill-panel.level-1 { width: 100%; }

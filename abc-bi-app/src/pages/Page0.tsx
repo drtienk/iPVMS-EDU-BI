@@ -26,7 +26,9 @@ import type { ColumnDef } from '@tanstack/react-table';
 
 const DRILLDOWN_BINS = 10;
 const DEFAULT_TOP_N = 20;
-const DRILLDOWN_TOP_PRODUCTS = 10;
+const DRILLDOWN_TOP_PRODUCTS = 100;
+/** Max periods shown side-by-side in cross-period comparison (up to one year). */
+const MAX_COMPARE_PERIODS = 12;
 const DRILLDOWN_TOP_SALES_ACTIVITY_CENTERS = 10;
 const DRILLDOWN_TOP_CUSTOMERS = 10;
 /** First-layer By Customer: show top N customers by (latest period) profit + Others */
@@ -43,6 +45,8 @@ type Drilldown2State = null | {
 function getPeriodRange(periodNos: number[], clicked: number): number[] {
   const sorted = [...periodNos].sort((a, b) => a - b);
   if (sorted.length === 0) return [clicked];
+  // Show up to a year of periods side-by-side. If <= MAX, show all of them.
+  if (sorted.length <= MAX_COMPARE_PERIODS) return sorted;
   let idx = sorted.indexOf(clicked);
   if (idx === -1) {
     const nearest = sorted.reduce((a, b) =>
@@ -50,18 +54,33 @@ function getPeriodRange(periodNos: number[], clicked: number): number[] {
     );
     idx = sorted.indexOf(nearest);
   }
-  let start = idx - 1;
-  let end = idx + 1;
+  // Window of MAX_COMPARE_PERIODS ending at the clicked period (extend forward if near the start).
+  let end = idx;
+  let start = end - (MAX_COMPARE_PERIODS - 1);
   if (start < 0) {
     start = 0;
-    end = Math.min(2, sorted.length - 1);
-  }
-  if (end >= sorted.length) {
-    end = sorted.length - 1;
-    start = Math.max(0, end - 2);
+    end = MAX_COMPARE_PERIODS - 1;
   }
   const result = sorted.slice(start, end + 1);
   return result.length > 0 ? result : [sorted[0] ?? clicked];
+}
+
+/** Rank products by magnitude, keeping "(Unknown)" out of the top-N race and
+ *  forcing it to the very bottom of the list. Returns the ordered top names,
+ *  the remaining ("Others") names, and the unknown name (if present). */
+function rankProductsUnknownLast(
+  productTotals: { name: string; sum: number }[],
+  topN: number
+): { topNames: string[]; othersNames: string[]; unknownName: string | null } {
+  const unknown = productTotals.find((x) => x.name === '(Unknown)');
+  const real = productTotals
+    .filter((x) => x.name !== '(Unknown)')
+    .sort((a, b) => b.sum - a.sum);
+  return {
+    topNames: real.slice(0, topN).map((x) => x.name),
+    othersNames: real.slice(topN).map((x) => x.name),
+    unknownName: unknown ? unknown.name : null,
+  };
 }
 
 export interface DashboardAggregate {
@@ -825,10 +844,9 @@ export function Page0() {
           );
           return { name, sum };
         });
-        productTotals.sort((a, b) => b.sum - a.sum);
-        const topNames = new Set(productTotals.slice(0, DRILLDOWN_TOP_PRODUCTS).map((x) => x.name));
+        const { topNames, othersNames, unknownName } = rankProductsUnknownLast(productTotals, DRILLDOWN_TOP_PRODUCTS);
         const rows: GroupedBarRow[] = [];
-        for (const { name } of productTotals.slice(0, DRILLDOWN_TOP_PRODUCTS)) {
+        for (const name of topNames) {
           rows.push({
             group: name,
             values: selectedPeriods.map((p) => ({
@@ -837,15 +855,23 @@ export function Page0() {
             })),
           });
         }
-        const othersSum = productTotals.slice(DRILLDOWN_TOP_PRODUCTS).reduce((s, x) => s + x.sum, 0);
-        if (othersSum > 0 || productTotals.length > DRILLDOWN_TOP_PRODUCTS) {
+        // "Others" bucket — only the real products beyond the top-N (excludes Unknown).
+        if (othersNames.length > 0) {
           rows.push({
             group: 'Others',
             values: selectedPeriods.map((p) => ({
               x: p,
-              y: Array.from(allProducts)
-                .filter((n) => !topNames.has(n))
-                .reduce((s, n) => s + (byPeriod.get(p)?.get(n) ?? 0), 0),
+              y: othersNames.reduce((s, n) => s + (byPeriod.get(p)?.get(n) ?? 0), 0),
+            })),
+          });
+        }
+        // "(Unknown)" always last.
+        if (unknownName) {
+          rows.push({
+            group: unknownName,
+            values: selectedPeriods.map((p) => ({
+              x: p,
+              y: byPeriod.get(p)?.get(unknownName) ?? 0,
             })),
           });
         }
@@ -1230,6 +1256,21 @@ export function Page0() {
     return () => { cancelled = true; };
   }, [productCustomerActivityDrill, selectedPeriods]);
 
+  // When a drill panel opens/changes, scroll it into view so its header isn't
+  // hidden behind the fixed top bar (scroll-margin-top handles the offset).
+  useEffect(() => {
+    const el = level4Ref.current ?? level3Ref.current;
+    if (!el) return;
+    const t = setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+    return () => clearTimeout(t);
+  }, [
+    productDrill, productCustomerDrill, productCustomerActivityDrill,
+    customerDrill, drilldown2, serviceCostDrill, customerActivityCenterDrill,
+    productServiceCostDrill, productServiceCostCenterDrill, sacServiceCostDrill,
+  ]);
+
   // Cleanup: when the product panel closes (or path switches), drop its child drills.
   useEffect(() => {
     if (productDrill == null) {
@@ -1511,10 +1552,9 @@ export function Page0() {
             0
           ),
         }));
-        productTotals.sort((a, b) => b.sum - a.sum);
-        const topProductNames = new Set(productTotals.slice(0, DRILLDOWN_TOP_PRODUCTS).map((x) => x.name));
+        const { topNames: topProductNames, othersNames: otherProductNames, unknownName: unknownProductName } = rankProductsUnknownLast(productTotals, DRILLDOWN_TOP_PRODUCTS);
         const productRows: GroupedBarRow[] = [];
-        for (const { name } of productTotals.slice(0, DRILLDOWN_TOP_PRODUCTS)) {
+        for (const name of topProductNames) {
           const values = drilldown2.periods.map((p) => ({
             x: p,
             y: byPeriodProduct.get(p)?.get(name) ?? 0,
@@ -1525,18 +1565,26 @@ export function Page0() {
             total: values.reduce((s, v) => s + v.y, 0),
           });
         }
-        const othersSum = productTotals.slice(DRILLDOWN_TOP_PRODUCTS).reduce((s, x) => s + x.sum, 0);
-        if (othersSum > 0 || productTotals.length > DRILLDOWN_TOP_PRODUCTS) {
+        if (otherProductNames.length > 0) {
           const othersValues = drilldown2.periods.map((p) => ({
             x: p,
-            y: Array.from(allProducts)
-              .filter((n) => !topProductNames.has(n))
-              .reduce((s, n) => s + (byPeriodProduct.get(p)?.get(n) ?? 0), 0),
+            y: otherProductNames.reduce((s, n) => s + (byPeriodProduct.get(p)?.get(n) ?? 0), 0),
           }));
           productRows.push({
             group: 'Others',
             values: othersValues,
             total: othersValues.reduce((s, v) => s + v.y, 0),
+          });
+        }
+        if (unknownProductName) {
+          const ukValues = drilldown2.periods.map((p) => ({
+            x: p,
+            y: byPeriodProduct.get(p)?.get(unknownProductName) ?? 0,
+          }));
+          productRows.push({
+            group: unknownProductName,
+            values: ukValues,
+            total: ukValues.reduce((s, v) => s + v.y, 0),
           });
         }
         const productMonthTotals = drilldown2.periods.map((period) => ({
